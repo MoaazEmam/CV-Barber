@@ -26,6 +26,9 @@ def create_app() -> FastAPI:
     async def root():
         return FileResponse(str(STATIC_DIR / "index.html"))
 
+    @app.get("/api/health")
+    async def health():
+        return {"status": "ok"}
     return app
 
 
