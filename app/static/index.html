@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CV Tailor</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+
+  <header>
+    <h1>CV Tailor</h1>
+    <p>Upload your CV, paste a job description, get a tailored CV in seconds.</p>
+  </header>
+
+  <main>
+
+    <!-- STEP 1: Upload -->
+    <section id="step-1" class="card active">
+      <div class="step-label">Step 1 — Upload your CV</div>
+
+      <div id="drop-zone" class="drop-zone">
+        <span id="drop-text">Drag and drop your CV here, or click to browse</span>
+        <span id="file-name" class="file-name hidden"></span>
+        <input type="file" id="file-input" accept=".pdf,.docx" hidden>
+      </div>
+
+      <button id="parse-btn" class="btn-primary" disabled>Parse CV</button>
+
+      <div id="parse-result" class="result-box hidden"></div>
+      <div id="parse-error" class="error-box hidden"></div>
+      <div id="parse-loading" class="loading hidden">Parsing your CV...</div>
+    </section>
+
+    <!-- STEP 2: Tailor -->
+    <section id="step-2" class="card hidden">
+      <div class="step-label">Step 2 — Tailor to a job</div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="job-title">Job title</label>
+          <input type="text" id="job-title" placeholder="e.g. Backend Engineering Intern">
+        </div>
+        <div class="form-group">
+          <label for="company-name">Company</label>
+          <input type="text" id="company-name" placeholder="e.g. Google">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="job-description">Job description</label>
+        <textarea id="job-description" rows="10"
+          placeholder="Paste the full job description here..."></textarea>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="top-n-experience">Max experience entries</label>
+          <input type="number" id="top-n-experience" value="3" min="1" max="10">
+        </div>
+        <div class="form-group">
+          <label for="top-n-projects">Max project entries</label>
+          <input type="number" id="top-n-projects" value="5" min="1" max="10">
+        </div>
+      </div>
+
+      <button id="tailor-btn" class="btn-primary">Generate tailored CV</button>
+
+      <div id="tailor-loading" class="loading hidden">
+        Tailoring your CV... this takes 15-30 seconds.
+      </div>
+      <div id="tailor-error" class="error-box hidden"></div>
+    </section>
+
+    <!-- STEP 3: Results -->
+    <section id="step-3" class="card hidden">
+      <div class="step-label">Your tailored CV is ready</div>
+
+      <div id="summary-box" class="summary-box"></div>
+
+      <div id="scores-box" class="scores-box"></div>
+
+      <div class="download-row">
+        <button id="download-docx" class="btn-download">Download DOCX</button>
+        <button id="download-pdf" class="btn-download">Download PDF</button>
+        <button id="preview-btn" class="btn-secondary">Preview</button>
+      </div>
+
+      <div id="preview-container" class="preview-container hidden">
+        <iframe id="preview-frame" src=""></iframe>
+      </div>
+
+      <button id="tailor-another" class="btn-secondary">Tailor for another job</button>
+    </section>
+
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
