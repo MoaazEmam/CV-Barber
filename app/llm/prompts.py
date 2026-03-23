@@ -31,12 +31,14 @@ object matching this structure:
     {{
       "institution": "string",
       "degree": "string",
+      "faculty":"string",
       "field": "string",
       "date_range": {{"start": "string", "end": "string or null"}},
       "gpa": "string or null",
       "relevant_courses": ["string"]
     }}
   ],
+  "certifications":["string"],
   "experience": [
     {{
       "title": "string",
@@ -109,6 +111,7 @@ Return a JSON object matching this structure:
   "job_title": "string",
   "company_name": "string",
   "education": [ ... same structure as input ... ],
+  "certifications":["string (pass through unchanged from input)"],
   "skills": [ ... same structure as input ... ],
   "experience": [
     {{

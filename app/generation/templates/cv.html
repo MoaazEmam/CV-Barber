@@ -3,10 +3,13 @@
 <head>
 <meta charset="utf-8">
 <style>
+  @page {
+    margin: 0.32in 0.25in 0.19in 0.25in;
+  }
   body {
     font-family: "Times New Roman", Times, serif;
-    font-size: 10pt;
-    margin: 0.5in 0.75in;
+    font-size: 10.5pt;
+    margin: 0;
     color: #000;
   }
   .name {
@@ -17,30 +20,49 @@
   }
   .contact {
     text-align: center;
-    font-size: 10pt;
+    font-size: 10.5pt;
     margin-bottom: 1pt;
   }
+  .contact a {
+    color: #000;
+    text-decoration: underline;
+  }
   .section-heading {
-    font-size: 11pt;
+    font-size: 10.5pt;
     font-weight: normal;
-    border-bottom: 1px solid #000;
+    border-bottom: 0.75px solid #000;
     margin-top: 8pt;
     margin-bottom: 3pt;
   }
   .entry-header {
-    display: flex;
-    justify-content: space-between;
+    display: table;
+    width: 100%;
     margin-bottom: 2pt;
+  }
+  .entry-header-left {
+    display: table-cell;
+    width: 85%;
+  }
+  .entry-header-right {
+    display: table-cell;
+    width: 15%;
+    text-align: right;
+    white-space: nowrap;
+    vertical-align: top;
   }
   .entry-title { font-weight: bold; }
   .entry-context { font-style: italic; }
-  .entry-date { white-space: nowrap; }
   ul {
     margin: 2pt 0 4pt 0;
     padding-left: 18pt;
   }
   li { margin-bottom: 1pt; }
   .skill-category { font-weight: bold; }
+  ul.nested {
+    margin: 1pt 0 1pt 0;
+    padding-left: 18pt;
+    list-style-type: disc;
+  }
 </style>
 </head>
 <body>
@@ -48,29 +70,52 @@
 <div class="name">{{ cv.full_name }}</div>
 
 <div class="contact">
-  {% set contact = [] %}
-  {% if cv.phone %}{% set _ = contact.append(cv.phone) %}{% endif %}
-  {% if cv.email %}{% set _ = contact.append(cv.email) %}{% endif %}
-  {% if cv.linkedin %}{% set _ = contact.append(cv.linkedin) %}{% endif %}
-  {{ contact | join(" | ") }}
+  {% set parts = [] %}
+  {% if cv.phone %}{% set _ = parts.append(cv.phone) %}{% endif %}
+  {% if cv.email %}{% set _ = parts.append(cv.email) %}{% endif %}
+  {% if cv.linkedin %}{% set _ = parts.append(cv.linkedin) %}{% endif %}
+
+  {% for part in parts %}
+    {% if loop.index == 1 and cv.phone %}
+      {{ cv.phone }}
+    {% elif part == cv.email %}
+      {% if not loop.first %} | {% endif %}
+      <a href="mailto:{{ cv.email }}">{{ cv.email }}</a>
+    {% elif part == cv.linkedin %}
+      {% if not loop.first %} | {% endif %}
+      {% if cv.linkedin.startswith('http') %}
+        <a href="{{ cv.linkedin }}">{{ cv.linkedin }}</a>
+      {% else %}
+        <a href="http://{{ cv.linkedin }}">{{ cv.linkedin }}</a>
+      {% endif %}
+    {% endif %}
+  {% endfor %}
 </div>
 
 {% if cv.github %}
-<div class="contact">{{ cv.github }}</div>
+<div class="contact">
+  {% if cv.github.startswith('http') %}
+    <a href="{{ cv.github }}">{{ cv.github }}</a>
+  {% else %}
+    <a href="https://{{ cv.github }}">{{ cv.github }}</a>
+  {% endif %}
+</div>
 {% endif %}
 
 {% if cv.education %}
 <div class="section-heading">EDUCATION</div>
 {% for entry in cv.education %}
 <div class="entry-header">
-  <span class="entry-title">
-    {{ entry.institution }}
-    {% if entry.faculty %} ||{{ entry.faculty }}{% endif %}
-    {% if entry.gpa %} || GPA: {{ entry.gpa }}{% endif %}
-  </span>
-  <span class="entry-date">
+  <div class="entry-header-left">
+    <span class="entry-title">
+      {{ entry.institution }}
+      {% if entry.faculty %} ||{{ entry.faculty }}{% endif %}
+      {% if entry.gpa %} || GPA: {{ entry.gpa }}{% endif %}
+    </span>
+  </div>
+  <div class="entry-header-right">
     {{ entry.date_range.start }}{% if entry.date_range.end %}-{{ entry.date_range.end }}{% endif %}
-  </span>
+  </div>
 </div>
 <div><em>Major: {{ entry.field }}</em></div>
 {% endfor %}
@@ -79,52 +124,64 @@
 {% if cv.skills %}
 <div class="section-heading">SKILLS</div>
 <ul>
-{% for category in cv.skills %}
+  {% for category in cv.skills %}
   <li>
     <span class="skill-category">{{ category.category }}:</span>
     {{ category.skills | join(", ") }}
   </li>
-{% endfor %}
+  {% endfor %}
+  {% if cv.certifications %}
+  <li>
+    <span class="skill-category">Certifications &amp; Courses:</span>
+    <ul class="nested">
+      {% for cert in cv.certifications %}
+      <li>{{ cert }}</li>
+      {% endfor %}
+    </ul>
+  </li>
+  {% endif %}
 </ul>
 {% endif %}
 
-{% if cv.experience or cv.projects %}
-<div class="section-heading">EXPERIENCE AND PROJECTS</div>
-
+{% if cv.experience %}
+<div class="section-heading">EXPERIENCE</div>
 {% for entry in cv.experience %}
 <div class="entry-header">
-  <span>
+  <div class="entry-header-left">
     <span class="entry-title">{{ entry.title }}:</span>
     <span class="entry-context">
-      {{ entry.company }}{% if entry.location %} ({{ entry.location }}){% endif %}
+      {% if entry.company %} {{ entry.company }}{% endif %}
+      {% if entry.location %} ({{ entry.location }}){% endif %}
     </span>
-  </span>
-  <span class="entry-date">
+  </div>
+  <div class="entry-header-right">
     {{ entry.date_range.start }}{% if entry.date_range.end %} – {{ entry.date_range.end }}{% endif %}
-  </span>
+  </div>
 </div>
 <ul>
   {% for bullet in entry.bullets %}<li>{{ bullet }}</li>{% endfor %}
 </ul>
 {% endfor %}
+{% endif %}
 
+{% if cv.projects %}
+<div class="section-heading">PROJECTS</div>
 {% for entry in cv.projects %}
 <div class="entry-header">
-  <span>
+  <div class="entry-header-left">
     <span class="entry-title">{{ entry.name }}:</span>
     {% if entry.description %}
     <span class="entry-context"> {{ entry.description }}</span>
     {% endif %}
-  </span>
-  <span class="entry-date">
+  </div>
+  <div class="entry-header-right">
     {% if entry.date_range and entry.date_range.start %}{{ entry.date_range.start }}{% endif %}
-  </span>
+  </div>
 </div>
 <ul>
   {% for bullet in entry.bullets %}<li>{{ bullet }}</li>{% endfor %}
 </ul>
 {% endfor %}
-
 {% endif %}
 
 </body>

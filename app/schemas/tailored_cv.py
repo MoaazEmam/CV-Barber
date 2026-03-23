@@ -26,5 +26,6 @@ class TailoredCV(BaseCV):
     projects: list[ScoredProjectEntry] = Field(default_factory=list)
     skills: list[SkillCategory] = Field(default_factory=list)
     education: list[EducationEntry] = Field(default_factory=list)
+    certifications:list[str]=Field(default_factory=list)
     job_title: str
     company_name: str

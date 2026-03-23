@@ -24,7 +24,7 @@ def main():
     scorer = CVScorer()
     tailored = scorer.score(
         master_cv,
-        "We are looking for a backend developer with Python and API experience.",
+        "Digital design engineer with knowledge of VHDL and Assembly",
         config,
     )
 

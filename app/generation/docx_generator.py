@@ -11,7 +11,7 @@ from app.generation.styles import (
     FONT_SIZE_BODY, FONT_SIZE_ENTRY_TITLE,
     SPACE_BEFORE_SECTION, SPACE_AFTER_SECTION,
     SPACE_AFTER_ENTRY, SPACE_AFTER_BULLET,
-    ALIGN_CENTER
+    ALIGN_CENTER,
 )
 from app.schemas.tailored_cv import TailoredCV, ScoredExperienceEntry, ScoredProjectEntry
 
@@ -32,8 +32,6 @@ class DocxGenerator(BaseGenerator):
     def file_extension(self) -> str:
         return "docx"
 
-    # --- private section builders ---
-
     def _set_margins(self, doc: Document) -> None:
         for section in doc.sections:
             section.top_margin = MARGIN_TOP
@@ -42,7 +40,7 @@ class DocxGenerator(BaseGenerator):
             section.right_margin = MARGIN_RIGHT
 
     def _add_header(self, doc: Document, cv: TailoredCV) -> None:
-        # name — large, bold, centered
+        # name
         name_para = doc.add_paragraph()
         name_para.alignment = ALIGN_CENTER
         name_para.paragraph_format.space_after = Pt(2)
@@ -51,36 +49,81 @@ class DocxGenerator(BaseGenerator):
         run.font.name = FONT_NAME
         run.font.size = FONT_SIZE_NAME
 
-        # contact line: phone | email | linkedin
-        contact_parts = []
-        if cv.phone:
-            contact_parts.append(cv.phone)
-        if cv.email:
-            contact_parts.append(cv.email)
-        if cv.linkedin:
-            contact_parts.append(cv.linkedin)
-
+        # contact line
         contact_para = doc.add_paragraph()
         contact_para.alignment = ALIGN_CENTER
         contact_para.paragraph_format.space_after = Pt(1)
-        run = contact_para.add_run(" | ".join(contact_parts))
-        run.font.name = FONT_NAME
-        run.font.size = FONT_SIZE_CONTACT
 
-        # github on its own line
+        parts = []
+        if cv.phone:
+            parts.append(("text", cv.phone))
+        if cv.email:
+            if parts:
+                parts.append(("text", " | "))
+            parts.append(("link", cv.email, f"mailto:{cv.email}"))
+        if cv.linkedin:
+            if parts:
+                parts.append(("text", " | "))
+            url = cv.linkedin if cv.linkedin.startswith("http") else f"http://{cv.linkedin}"
+            parts.append(("link", cv.linkedin, url))
+
+        for part in parts:
+            if part[0] == "text":
+                run = contact_para.add_run(part[1])
+                run.font.name = FONT_NAME
+                run.font.size = FONT_SIZE_CONTACT
+            else:
+                self._add_hyperlink(contact_para, part[1], part[2])
+
+        # github
         if cv.github:
             github_para = doc.add_paragraph()
             github_para.alignment = ALIGN_CENTER
             github_para.paragraph_format.space_after = Pt(4)
-            run = github_para.add_run(cv.github)
-            run.font.name = FONT_NAME
-            run.font.size = FONT_SIZE_CONTACT
+            url = cv.github if cv.github.startswith("http") else f"https://{cv.github}"
+            self._add_hyperlink(github_para, cv.github, url)
+
+    def _add_hyperlink(self, paragraph, text: str, url: str) -> None:
+        """
+        Inserts a real clickable hyperlink into a paragraph via OOXML.
+        python-docx doesn't have a native hyperlink API so we use XML directly.
+        """
+        part = paragraph.part
+        r_id = part.relate_to(
+            url,
+            "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink",
+            is_external=True,
+        )
+        hyperlink = OxmlElement("w:hyperlink")
+        hyperlink.set(qn("r:id"), r_id)
+
+        run_elem = OxmlElement("w:r")
+        rPr = OxmlElement("w:rPr")
+
+        # underline
+        u = OxmlElement("w:u")
+        u.set(qn("w:val"), "single")
+        rPr.append(u)
+
+        # font name
+        rFonts = OxmlElement("w:rFonts")
+        rFonts.set(qn("w:ascii"), FONT_NAME)
+        rFonts.set(qn("w:hAnsi"), FONT_NAME)
+        rPr.append(rFonts)
+
+        # font size (half-points)
+        sz = OxmlElement("w:sz")
+        sz.set(qn("w:val"), str(int(FONT_SIZE_CONTACT.pt * 2)))
+        rPr.append(sz)
+
+        run_elem.append(rPr)
+        t = OxmlElement("w:t")
+        t.text = text
+        run_elem.append(t)
+        hyperlink.append(run_elem)
+        paragraph._p.append(hyperlink)
 
     def _add_section_heading(self, doc: Document, title: str) -> None:
-        """
-        Adds a section heading with a full-width bottom border line
-        matching your CV's EDUCATION, SKILLS, EXPERIENCE AND PROJECTS style.
-        """
         para = doc.add_paragraph()
         para.paragraph_format.space_before = SPACE_BEFORE_SECTION
         para.paragraph_format.space_after = SPACE_AFTER_SECTION
@@ -89,8 +132,6 @@ class DocxGenerator(BaseGenerator):
         run.font.name = FONT_NAME
         run.font.size = FONT_SIZE_SECTION
 
-        # add bottom border to paragraph via XML — this is the line under
-        # each section heading in your CV
         pPr = para._p.get_or_add_pPr()
         pBdr = OxmlElement("w:pBdr")
         bottom = OxmlElement("w:bottom")
@@ -105,13 +146,10 @@ class DocxGenerator(BaseGenerator):
         self._add_section_heading(doc, "EDUCATION")
 
         for entry in cv.education:
-            # first line: "Institution ||Faculty|| GPA: x.xx" with date right-aligned
-            # achieved via a paragraph with a right-aligned tab stop
             para = doc.add_paragraph()
             para.paragraph_format.space_after = Pt(1)
             self._set_right_tab(para)
 
-            # institution + faculty + gpa bold
             parts = [entry.institution]
             if entry.faculty:
                 parts.append(entry.faculty)
@@ -123,14 +161,12 @@ class DocxGenerator(BaseGenerator):
             run.font.name = FONT_NAME
             run.font.size = FONT_SIZE_BODY
 
-            # date right-aligned via tab
             date_str = self._format_date_range(entry.date_range)
             tab_run = para.add_run(f"\t{date_str}")
-            tab_run.bold = True
+            tab_run.bold = False
             tab_run.font.name = FONT_NAME
             tab_run.font.size = FONT_SIZE_BODY
 
-            # second line: "Major: field" in italic
             major_para = doc.add_paragraph()
             major_para.paragraph_format.space_after = Pt(2)
             run = major_para.add_run(f"Major: {entry.field}")
@@ -145,39 +181,44 @@ class DocxGenerator(BaseGenerator):
             para = doc.add_paragraph(style="List Bullet")
             para.paragraph_format.space_after = SPACE_AFTER_BULLET
 
-            # bold category name inline
             run = para.add_run(f"{category.category}: ")
             run.bold = True
             run.font.name = FONT_NAME
             run.font.size = FONT_SIZE_BODY
 
-            # plain skills list
             run = para.add_run(", ".join(category.skills))
             run.bold = False
             run.font.name = FONT_NAME
             run.font.size = FONT_SIZE_BODY
 
-        # certifications as nested bullets under skills
-        if cv.education and any(
-            hasattr(e, "certifications") for e in cv.education
-        ):
-            pass  # handled separately if needed
+        # certifications as a bullet with nested items
+        if cv.certifications:
+            cert_para = doc.add_paragraph(style="List Bullet")
+            cert_para.paragraph_format.space_after = SPACE_AFTER_BULLET
+            run = cert_para.add_run("Certifications & Courses:")
+            run.bold = True
+            run.font.name = FONT_NAME
+            run.font.size = FONT_SIZE_BODY
 
-    def _add_experience_and_projects(
-        self, doc: Document, cv: TailoredCV
-    ) -> None:
-        self._add_section_heading(doc, "EXPERIENCE AND PROJECTS")
+            for cert in cv.certifications:
+                nested = doc.add_paragraph(style="List Bullet 2")
+                nested.paragraph_format.space_after = SPACE_AFTER_BULLET
+                run = nested.add_run(cert)
+                run.font.name = FONT_NAME
+                run.font.size = FONT_SIZE_BODY
 
-        for entry in cv.experience:
-            self._add_experience_entry(doc, entry)
+    def _add_experience_and_projects(self, doc: Document, cv: TailoredCV) -> None:
+        if cv.experience:
+            self._add_section_heading(doc, "EXPERIENCE")
+            for entry in cv.experience:
+                self._add_experience_entry(doc, entry)
 
-        for entry in cv.projects:
-            self._add_project_entry(doc, entry)
+        if cv.projects:
+            self._add_section_heading(doc, "PROJECTS")
+            for entry in cv.projects:
+                self._add_project_entry(doc, entry)
 
-    def _add_experience_entry(
-        self, doc: Document, entry: ScoredExperienceEntry
-    ) -> None:
-        # "Title: Company (Location)"  with date right-aligned
+    def _add_experience_entry(self, doc: Document, entry: ScoredExperienceEntry) -> None:
         para = doc.add_paragraph()
         para.paragraph_format.space_after = Pt(2)
         self._set_right_tab(para)
@@ -206,13 +247,9 @@ class DocxGenerator(BaseGenerator):
         for bullet in entry.bullets:
             self._add_bullet(doc, bullet)
 
-        # spacing after entry
         doc.paragraphs[-1].paragraph_format.space_after = SPACE_AFTER_ENTRY
 
-    def _add_project_entry(
-        self, doc: Document, entry: ScoredProjectEntry
-    ) -> None:
-        # "Name: *context/description*"  with date right-aligned
+    def _add_project_entry(self, doc: Document, entry: ScoredProjectEntry) -> None:
         para = doc.add_paragraph()
         para.paragraph_format.space_after = Pt(2)
         self._set_right_tab(para)
@@ -246,20 +283,12 @@ class DocxGenerator(BaseGenerator):
         run.font.size = FONT_SIZE_BODY
 
     def _set_right_tab(self, para) -> None:
-        """
-        Sets a right-aligned tab stop at the right margin
-        so dates can be right-aligned on the same line as titles.
-        """
-        from docx.oxml.ns import qn
-        from docx.oxml import OxmlElement
-        from docx.shared import Inches
-
         pPr = para._p.get_or_add_pPr()
         tabs = OxmlElement("w:tabs")
         tab = OxmlElement("w:tab")
         tab.set(qn("w:val"), "right")
-        # 6.5 inches = full text width with 0.75in margins on 8.5in page
-        tab.set(qn("w:pos"), "9360")
+        # page width 8.5in - 0.25in*2 margins = 8in = 11520 twips
+        tab.set(qn("w:pos"), "11520")
         tabs.append(tab)
         pPr.append(tabs)
 
@@ -268,7 +297,7 @@ class DocxGenerator(BaseGenerator):
             return ""
         if date_range.end:
             return f"{date_range.start} – {date_range.end}"
-        return date_range.start
+        return date_range.start if date_range.start else ""
 
     def _to_bytes(self, doc: Document) -> bytes:
         buffer = BytesIO()
