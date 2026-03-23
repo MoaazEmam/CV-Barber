@@ -6,3 +6,9 @@ startCommand = "uvicorn app.api.main:app --host 0.0.0.0 --port $PORT"
 healthcheckPath = "/api/health"
 healthcheckTimeout = 30
 restartPolicyType = "on_failure"
+
+[tool.poetry]
+name = "pp"
+version = "0.1.0"
+description = ""
+package-mode = false
