@@ -18,7 +18,7 @@ class DateRange(BaseModel):
 
 class ExperienceEntry(BaseModel):
     title: str = Field(description="Job title")
-    company: str
+    company: Optional[str]=None
     location: Optional[str] = None
     date_range: DateRange
     bullets: list[str] = Field(
@@ -27,7 +27,7 @@ class ExperienceEntry(BaseModel):
 
 class ProjectEntry(BaseModel):
     name: str
-    description: str = Field(description="One sentence summary")
+    description: Optional[str] = None
     tech_stack: list[str] = Field(description="e.g. ['Python', 'FastAPI', 'PostgreSQL']")
     bullets: list[str] = Field(
         description="What you built, what it does, results if any"
@@ -37,7 +37,8 @@ class ProjectEntry(BaseModel):
 
 class EducationEntry(BaseModel):
     institution: str
-    degree: str
+    degree: Optional[str]=None
+    faculty: Optional[str]=None
     field: str
     date_range: DateRange
     gpa: Optional[str] = None

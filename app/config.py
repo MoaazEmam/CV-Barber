@@ -14,3 +14,4 @@ class Settings(BaseSettings):
     api_port:int=Field(default=8000)
     env:str=Field(default='dev')
     model_config = SettingsConfigDict(env_file=".env")
+settings = Settings()
