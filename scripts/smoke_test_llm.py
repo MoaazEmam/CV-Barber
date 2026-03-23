@@ -2,6 +2,7 @@ def main():
     from app.extraction import TextExtractor
     from app.llm import CVParser, CVScorer
     from app.schemas.config import TailoringConfig
+    from app.generation import DocxGenerator, PdfGenerator
 
     extractor = TextExtractor()
     text = extractor.extract_cv_text("tests/extraction/fixtures/sample.pdf")
@@ -32,6 +33,18 @@ def main():
     print("TAILORED CV (filtered and scored)")
     print("=" * 60)
     print(tailored.model_dump_json(indent=2))
+
+    docx_gen = DocxGenerator()
+    docx_bytes = docx_gen.generate(tailored)
+    with open("output_cv.docx", "wb") as f:
+        f.write(docx_bytes)
+    print("\nSaved output_cv.docx — open it to verify layout")
+
+    pdf_gen = PdfGenerator()
+    pdf_bytes = pdf_gen.generate(tailored)
+    with open("output_cv.pdf", "wb") as f:
+        f.write(pdf_bytes)
+    print("Saved output_cv.pdf — open it to verify layout")
 
 
 if __name__ == "__main__":

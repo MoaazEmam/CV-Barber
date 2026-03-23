@@ -1,0 +1,29 @@
+from docx.shared import Pt, Inches, RGBColor
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+
+# page margins
+MARGIN_TOP = Inches(0.5)
+MARGIN_BOTTOM = Inches(0.5)
+MARGIN_LEFT = Inches(0.75)
+MARGIN_RIGHT = Inches(0.75)
+
+# fonts
+FONT_NAME = "Times New Roman"
+FONT_SIZE_NAME = Pt(20)
+FONT_SIZE_CONTACT = Pt(10)
+FONT_SIZE_SECTION = Pt(11)
+FONT_SIZE_BODY = Pt(10)
+FONT_SIZE_ENTRY_TITLE = Pt(10)
+
+# colors
+COLOR_BLACK = RGBColor(0, 0, 0)
+
+# spacing
+SPACE_BEFORE_SECTION = Pt(6)
+SPACE_AFTER_SECTION = Pt(2)
+SPACE_AFTER_ENTRY = Pt(4)
+SPACE_AFTER_BULLET = Pt(1)
+
+# alignment
+ALIGN_CENTER = WD_ALIGN_PARAGRAPH.CENTER
+ALIGN_LEFT = WD_ALIGN_PARAGRAPH.LEFT
