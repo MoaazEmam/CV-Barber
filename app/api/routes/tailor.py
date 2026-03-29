@@ -1,11 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
+
 from app.api.dependencies import SessionStore, get_session_store
 from app.api.models import TailorRequest, TailorResponse
-from app.llm import CVScorer
-from app.generation import GeneratorFactory
-from app.schemas.config import TailoringConfig
 from app.config import Settings, settings as default_settings
+from app.generation import GeneratorFactory
+from app.llm import (
+    CVScorer,
+    LLMAllKeysExhaustedError,
+    LLMRateLimitError,
+    LLMValidationError,
+)
+from app.schemas.config import TailoringConfig
 
 router = APIRouter()
 
@@ -18,8 +24,7 @@ async def tailor_cv(
     master_cv = store.get_master(request.session_id)
     if not master_cv:
         raise HTTPException(
-            status_code=404,
-            detail="Session not found. Please upload your CV again."
+            status_code=404, detail="Session not found. Please upload your CV again."
         )
 
     config = TailoringConfig(
@@ -32,9 +37,18 @@ async def tailor_cv(
     try:
         scorer = CVScorer()
         tailored_cv = scorer.score(master_cv, request.job_description, config)
-    except RuntimeError as e:
+    except LLMAllKeysExhaustedError:
+        raise HTTPException(
+            status_code=503,
+            detail="Daily usage limit reached. The service resets at midnight.",
+        )
+    except LLMRateLimitError as e:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Service is busy. Please try again in {e.retry_after_seconds} seconds.",
+        )
+    except LLMValidationError as e:
         raise HTTPException(status_code=422, detail=str(e))
-
     tailored_id = store.save_tailored(tailored_cv)
 
     scores = [

@@ -1,8 +1,14 @@
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
+
 from app.api.dependencies import SessionStore, get_session_store
 from app.api.models import ParseResponse
 from app.extraction import TextExtractor
-from app.llm import CVParser
+from app.llm import (
+    CVParser,
+    LLMAllKeysExhaustedError,
+    LLMRateLimitError,
+    LLMValidationError,
+)
 
 router = APIRouter()
 extractor = TextExtractor()
@@ -16,8 +22,7 @@ async def parse_cv(
     # validate file type
     if not file.filename.endswith((".pdf", ".docx")):
         raise HTTPException(
-            status_code=400,
-            detail="Unsupported file type. Upload a PDF or DOCX."
+            status_code=400, detail="Unsupported file type. Upload a PDF or DOCX."
         )
 
     try:
@@ -29,7 +34,17 @@ async def parse_cv(
     try:
         parser = CVParser()
         master_cv = parser.parse(raw_text)
-    except RuntimeError as e:
+    except LLMAllKeysExhaustedError:
+        raise HTTPException(
+            status_code=503,
+            detail="Daily usage limit reached. The service resets at midnight.",
+        )
+    except LLMRateLimitError as e:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Service is busy. Please try again in {e.retry_after_seconds} seconds.",
+        )
+    except LLMValidationError as e:
         raise HTTPException(status_code=422, detail=str(e))
 
     session_id = store.save_master(master_cv)
@@ -41,5 +56,5 @@ async def parse_cv(
         project_count=len(master_cv.projects),
         skills_count=len(master_cv.skills),
         message=f"CV parsed successfully. Found {len(master_cv.experience)} experience "
-                f"entries and {len(master_cv.projects)} projects.",
+        f"entries and {len(master_cv.projects)} projects.",
     )
