@@ -28,3 +28,4 @@ Thumbs.db
 .vscode/
 .idea/
 /build_order_sequence.svg
+/app/llm/temp.ipynb
