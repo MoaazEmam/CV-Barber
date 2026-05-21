@@ -10,7 +10,7 @@ class BaseGenerator(ABC):
     """
 
     @abstractmethod
-    def generate(self, cv: TailoredCV) -> bytes:
+    def generate(self, cv: TailoredCV, section_config: dict | None = None) -> bytes:
         """
         Generate a CV document from a TailoredCV model.
         Returns raw bytes of the generated file.

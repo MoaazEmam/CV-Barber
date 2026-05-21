@@ -5,6 +5,7 @@ from docx.oxml import OxmlElement
 from docx.shared import Pt
 
 from app.generation.base_generator import BaseGenerator
+from app.generation.section_filter import apply_section_config
 from app.generation.styles import (
     MARGIN_TOP, MARGIN_BOTTOM, MARGIN_LEFT, MARGIN_RIGHT,
     FONT_NAME, FONT_SIZE_NAME, FONT_SIZE_CONTACT, FONT_SIZE_SECTION,
@@ -17,12 +18,15 @@ from app.schemas.tailored_cv import TailoredCV, ScoredExperienceEntry, ScoredPro
 
 
 class DocxGenerator(BaseGenerator):
-    def generate(self, cv: TailoredCV) -> bytes:
+    def generate(self, cv: TailoredCV, section_config: dict | None = None) -> bytes:
+        cv = apply_section_config(cv, section_config)
         doc = Document()
         self._set_margins(doc)
         self._add_header(doc, cv)
-        self._add_education(doc, cv)
-        self._add_skills(doc, cv)
+        if cv.education:
+            self._add_education(doc, cv)
+        if cv.skills or cv.certifications:
+            self._add_skills(doc, cv)
         self._add_experience_and_projects(doc, cv)
         return self._to_bytes(doc)
 
