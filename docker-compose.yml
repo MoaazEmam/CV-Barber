@@ -1,15 +1,39 @@
-version: "3.9"
-
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: cvbarber-pg
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=cvbarber
+      - POSTGRES_PASSWORD=cvbarber
+      - POSTGRES_DB=cvbarber
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cvbarber -d cvbarber"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   app:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cvbarber-app
+    restart: unless-stopped
     env_file:
       - .env
-    container_name: my-python-app
     ports:
       - "8000:8000"
     environment:
-      - PORT=8000
-    volumes:
-      - ./app:/app/app   # live reload-friendly
-    command: uvicorn app.api.main:app --host 0.0.0.0 --port 8000 --reload
+      - API_PORT=8000
+      # Override .env so the app reaches the compose-internal postgres service
+      - DATABASE_URL=postgresql+asyncpg://cvbarber:cvbarber@postgres:5432/cvbarber
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
