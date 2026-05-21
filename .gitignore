@@ -91,3 +91,5 @@ app/static/
 *.sqlite
 *.sqlite3
 *.db
+/CLAUDE.md
+.claude
