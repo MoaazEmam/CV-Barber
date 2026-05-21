@@ -19,7 +19,9 @@ class Settings(BaseSettings):
     top_n_experience: int = Field(default=3)
     api_host: str = Field(default="0.0.0.0")
     api_port: int = Field(default=8000)
-    env: str = Field(default="dev")
+    env: str = Field(default="development")
+    database_url: str = Field(...)
+    secret_key: str = Field(...)
     model_config = SettingsConfigDict(env_file=ENV_FILE_PATH, case_sensitive=False)
 
     def get_all_gemini_keys(self) -> list[str]:
