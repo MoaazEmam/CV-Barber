@@ -31,4 +31,4 @@ COPY alembic.ini ./
 
 COPY --from=frontend-builder /app/static ./app/static/
 
-CMD ["sh", "-c", "alembic upgrade head && uvicorn app.api.main:app --host 0.0.0.0 --port ${API_PORT:-8000}"]
+CMD ["sh", "-c", "alembic upgrade head && uvicorn app.api.main:app --host 0.0.0.0 --port ${PORT:-${API_PORT:-8000}}"]
