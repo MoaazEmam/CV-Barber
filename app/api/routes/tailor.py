@@ -1,9 +1,20 @@
-from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import Response
+from uuid import UUID
 
-from app.api.dependencies import SessionStore, get_session_store
-from app.api.models import TailorRequest, TailorResponse
+import structlog
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi.responses import Response
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from sqlalchemy import select
+
+from app.api.dependencies import get_application, get_master_cv, save_application
+from app.api.models import SectionConfigUpdate, TailorRequest, TailorResponse
+from app.db.models import ApplicationModel
+from app.auth.config import current_active_user
 from app.config import Settings, settings as default_settings
+from app.db.dependencies import get_db
+from app.db.base import AsyncSessionLocal
+from app.db.models import User
 from app.generation import GeneratorFactory
 from app.llm import (
     CVScorer,
@@ -14,15 +25,24 @@ from app.llm import (
 from app.schemas.config import TailoringConfig
 
 router = APIRouter()
+log = structlog.get_logger()
 
 
 @router.post("/tailor", response_model=TailorResponse)
 async def tailor_cv(
     request: TailorRequest,
-    store: SessionStore = Depends(get_session_store),
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(current_active_user),
 ):
-    master_cv = store.get_master(request.session_id)
-    if not master_cv:
+    try:
+        master_cv_id = UUID(request.session_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Session not found. Please upload your CV again.")
+
+    try:
+        master_cv = await get_master_cv(db, master_cv_id)
+    except KeyError:
         raise HTTPException(
             status_code=404, detail="Session not found. Please upload your CV again."
         )
@@ -36,7 +56,18 @@ async def tailor_cv(
 
     try:
         scorer = CVScorer()
-        tailored_cv = scorer.score(master_cv, request.job_description, config)
+        log.info(
+            "scoring_started",
+            job_title=request.job_title,
+            company=request.company_name,
+            master_cv_id=str(master_cv_id),
+        )
+        tailored_cv = await scorer.score(master_cv, request.job_description, config)
+        log.info(
+            "scoring_completed",
+            experience=len(tailored_cv.experience),
+            projects=len(tailored_cv.projects),
+        )
     except LLMAllKeysExhaustedError:
         raise HTTPException(
             status_code=503,
@@ -49,7 +80,48 @@ async def tailor_cv(
         )
     except LLMValidationError as e:
         raise HTTPException(status_code=422, detail=str(e))
-    tailored_id = store.save_tailored(tailored_cv)
+
+    tailored_id = await save_application(
+        db,
+        tailored_cv,
+        master_cv_id,
+        request.job_title,
+        request.company_name,
+        request.job_description,
+        user_id=current_user.id,
+    )
+    log.info("application_saved", application_id=str(tailored_id))
+
+    # Auto-trigger job ATS score as a background task with a fresh DB session.
+    async def _run_job_ats(app_id: UUID, tailored_dump: dict, job_description: str):
+        from app.llm.ats_scorer import ATSScorer
+        from app.schemas.tailored_cv import TailoredCV as _TailoredCV
+
+        try:
+            tailored = _TailoredCV.model_validate(tailored_dump)
+            scorer_bg = ATSScorer()
+            ats_result = await scorer_bg.score_job(tailored, job_description)
+        except Exception as e:
+            log.warning("auto_job_ats_failed", error=str(e))
+            return
+        async with AsyncSessionLocal() as session:
+            result = await session.execute(
+                select(ApplicationModel).where(ApplicationModel.id == app_id)
+            )
+            row = result.scalar_one_or_none()
+            if row is None:
+                return
+            row.job_match_score = ats_result.score
+            row.job_improvement_points = {
+                "improvements": ats_result.improvements,
+                "matched_keywords": ats_result.matched_keywords,
+                "missing_keywords": ats_result.missing_keywords,
+            }
+            await session.commit()
+
+    background_tasks.add_task(
+        _run_job_ats, tailored_id, tailored_cv.model_dump(), request.job_description
+    )
 
     scores = [
         {
@@ -71,7 +143,7 @@ async def tailor_cv(
 
     return TailorResponse(
         session_id=request.session_id,
-        tailored_session_id=tailored_id,
+        tailored_session_id=str(tailored_id),
         full_name=tailored_cv.full_name,
         company_name=tailored_cv.company_name,
         job_title=tailored_cv.job_title,
@@ -84,13 +156,22 @@ async def tailor_cv(
 
 @router.get("/download/{tailored_id}")
 async def download_cv(
-    tailored_id: str,
+    tailored_id: UUID,
     format: str = "docx",
-    store: SessionStore = Depends(get_session_store),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(current_active_user),
 ):
-    tailored_cv = store.get_tailored(tailored_id)
-    if not tailored_cv:
+    result = await db.execute(
+        select(ApplicationModel).where(ApplicationModel.id == tailored_id)
+    )
+    application = result.scalar_one_or_none()
+    if application is None:
         raise HTTPException(status_code=404, detail="Tailored CV not found.")
+    if application.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    from app.schemas.tailored_cv import TailoredCV
+    tailored_cv = TailoredCV.model_validate(application.tailored_cv_data)
 
     # override settings format with query param
     override_settings = Settings(
@@ -99,7 +180,7 @@ async def download_cv(
     factory = GeneratorFactory(settings=override_settings)
     generator = factory.create()
 
-    file_bytes = generator.generate(tailored_cv)
+    file_bytes = generator.generate(tailored_cv, section_config=application.section_config)
     filename = generator.filename(tailored_cv)
 
     return Response(
@@ -107,3 +188,23 @@ async def download_cv(
         media_type=generator.content_type(),
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
+
+
+@router.patch("/applications/{application_id}/sections")
+async def update_section_config(
+    application_id: UUID,
+    payload: SectionConfigUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(current_active_user),
+):
+    result = await db.execute(
+        select(ApplicationModel).where(ApplicationModel.id == application_id)
+    )
+    application = result.scalar_one_or_none()
+    if application is None:
+        raise HTTPException(status_code=404, detail="Application not found")
+    if application.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    application.section_config = payload.section_config
+    await db.commit()
+    return {"ok": True}
