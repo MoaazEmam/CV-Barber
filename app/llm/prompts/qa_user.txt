@@ -1,0 +1,7 @@
+Tailored CV:
+{tailored_cv_json}
+
+Questions:
+{questions_json}
+
+Answer each question using information from the CV above.

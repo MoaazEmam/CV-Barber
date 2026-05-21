@@ -1,0 +1,54 @@
+Extract all information from the following CV text and return it as a JSON
+object matching this structure:
+
+{{
+  "full_name": "string",
+  "email": "string",
+  "phone": "string or null",
+  "location": "string or null",
+  "linkedin": "string or null",
+  "github": "string or null",
+  "website": "string or null",
+  "summary": "string or null",
+  "education": [
+    {{
+      "institution": "string",
+      "degree": "string",
+      "faculty":"string",
+      "field": "string",
+      "date_range": {{"start": "string", "end": "string or null"}},
+      "gpa": "string or null",
+      "relevant_courses": ["string"]
+    }}
+  ],
+  "certifications":["string"],
+  "experience": [
+    {{
+      "title": "string",
+      "company": "string",
+      "location": "string or null",
+      "date_range": {{"start": "string", "end": "string or null"}},
+      "bullets": ["string"]
+    }}
+  ],
+  "projects": [
+    {{
+      "name": "string",
+      "description": "string",
+      "tech_stack": ["string"],
+      "bullets": ["string"],
+      "url": "string or null",
+      "date_range": {{"start": "string", "end": "string or null"}}
+    }}
+  ],
+  "skills": [
+    {{
+      "category": "string",
+      "skills": ["string"]
+    }}
+  ],
+  "certifications": ["string"]
+}}
+
+CV Text:
+{cv_text}

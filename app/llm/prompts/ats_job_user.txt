@@ -1,0 +1,7 @@
+Job Description:
+{job_description}
+
+Tailored CV:
+{tailored_cv_json}
+
+Score this CV's match to the job description above.

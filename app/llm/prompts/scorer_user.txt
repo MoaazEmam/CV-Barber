@@ -1,0 +1,48 @@
+Job Title: {job_title}
+Company: {company_name}
+
+Job Description:
+{job_description}
+
+Candidate CV (JSON):
+{master_cv_json}
+
+Return a JSON object matching this structure:
+{{
+  "full_name": "string",
+  "email": "string",
+  "phone": "string or null",
+  "location": "string or null",
+  "linkedin": "string or null",
+  "github": "string or null",
+  "website": "string or null",
+  "tailored_summary": "string",
+  "job_title": "string",
+  "company_name": "string",
+  "education": [ ... same structure as input ... ],
+  "certifications":["string (pass through unchanged from input)"],
+  "skills": [ ... same structure as input ... ],
+  "experience": [
+    {{
+      "title": "string",
+      "company": "string",
+      "location": "string or null",
+      "date_range": {{"start": "string", "end": "string or null"}},
+      "bullets": ["string"],
+      "relevance_score": 0-10,
+      "relevance_reason": "string"
+    }}
+  ],
+  "projects": [
+    {{
+      "name": "string",
+      "description": "string",
+      "tech_stack": ["string"],
+      "bullets": ["string"],
+      "url": "string or null",
+      "date_range": {{"start": "string", "end": "string or null"}},
+      "relevance_score": 0-10,
+      "relevance_reason": "string"
+    }}
+  ]
+}}

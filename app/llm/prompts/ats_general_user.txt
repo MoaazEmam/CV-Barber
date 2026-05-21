@@ -1,0 +1,4 @@
+CV:
+{master_cv_json}
+
+Evaluate this CV for general ATS compatibility and quality.
