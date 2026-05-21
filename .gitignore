@@ -4,28 +4,90 @@ __pycache__/
 *.pyo
 *.pyd
 .Python
+*.egg-info/
+*.so
 
 # Environment
 .env
+.env.local
+.env.*.local
 
-# Poetry
+# Poetry / virtualenvs
 .venv/
+venv/
+env/
 
 # Testing
 .pytest_cache/
 .coverage
+.coverage.*
 htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+!frontend/**/*.ipynb
 
 # Output files (generated during dev/testing)
 output_cv.docx
 output_cv.pdf
+*.bak
+*.tmp
+
+# Personal CVs / samples — local-only, never commit
+my_cv.*
+sample_cv.*
+test_cv.*
+cv_*.pdf
+cv_*.docx
 
 # OS
 .DS_Store
 Thumbs.db
+desktop.ini
 
-# IDE
+# IDE / editors
 .vscode/
 .idea/
+*.swp
+*.swo
+*~
+.project
+.settings/
+pyrightconfig.json
 /build_order_sequence.svg
-/app/llm/temp.ipynb
+
+# Claude Code / agent local data — useful only to Claude, not the repo
+.claude/
+.claude-cache/
+.aider*
+.cursor/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/coverage/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Built frontend bundle (output of `npm run build`)
+app/static/
+
+# Logs / temp
+*.log
+/tmp_*
+/tmp/
+.cache/
+
+# Database dumps / local data
+*.sql.gz
+*.dump
+*.sqlite
+*.sqlite3
+*.db
