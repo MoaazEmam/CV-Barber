@@ -56,6 +56,7 @@ class ApplicationModel(Base):
     section_config: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     job_match_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
     job_improvement_points: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    cover_letter: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 

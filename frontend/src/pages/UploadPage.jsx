@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../lib/axios'
 import useAppStore from '../store/useAppStore'
@@ -11,16 +11,80 @@ function formatSize(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
+function formatDate(d) {
+  if (!d) return ''
+  const dt = new Date(d)
+  return dt.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
+function PreviousCVsSection({ onSelect }) {
+  const [cvs, setCvs] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let alive = true
+    api
+      .get('/api/master-cvs')
+      .then((res) => {
+        if (!alive) return
+        setCvs(res.data?.master_cvs || [])
+      })
+      .catch(() => {
+        // silently ignore — first-time users won't see the section
+      })
+      .finally(() => alive && setLoading(false))
+    return () => {
+      alive = false
+    }
+  }, [])
+
+  if (loading || cvs.length === 0) return null
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-3">
+        <div className="flex-1 h-px bg-slate-700" />
+        <span className="text-slate-500 text-sm">or use a previously uploaded CV</span>
+        <div className="flex-1 h-px bg-slate-700" />
+      </div>
+      <div className="space-y-2">
+        {cvs.map((cv) => (
+          <div
+            key={cv.id}
+            className="flex items-center justify-between bg-slate-900 border border-slate-800 rounded-xl px-4 py-3"
+          >
+            <div>
+              <p className="text-white font-medium text-sm">{cv.full_name}</p>
+              <p className="text-slate-500 text-xs mt-0.5">
+                {cv.experience_count} exp · {cv.project_count} projects · {cv.skills_count} skills
+                {' · '}{formatDate(cv.created_at)}
+              </p>
+            </div>
+            <button
+              onClick={() => onSelect(cv)}
+              className="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium px-3 py-1.5 rounded-lg transition ml-3 shrink-0"
+            >
+              Use this CV
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default function UploadPage() {
   const navigate = useNavigate()
   const setMasterCv = useAppStore((s) => s.setMasterCv)
-  const masterCvMeta = useAppStore((s) => s.masterCvMeta)
   const inputRef = useRef(null)
   const [file, setFile] = useState(null)
   const [dragOver, setDragOver] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState(masterCvMeta)
 
   const pickFile = (f) => {
     if (!f) return
@@ -55,13 +119,23 @@ export default function UploadPage() {
         skills_count: res.data.skills_count,
       }
       setMasterCv(res.data.session_id, meta)
-      setResult(meta)
+      navigate('/tailor')
     } catch (err) {
       const detail = err.response?.data?.detail
       setError(typeof detail === 'string' ? detail : 'Failed to parse CV.')
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleSelectExisting = (cv) => {
+    setMasterCv(cv.id, {
+      full_name: cv.full_name,
+      experience_count: cv.experience_count,
+      project_count: cv.project_count,
+      skills_count: cv.skills_count,
+    })
+    navigate('/tailor')
   }
 
   return (
@@ -130,21 +204,7 @@ export default function UploadPage() {
 
       {error && <p className="text-red-400 text-sm">{error}</p>}
 
-      {result && (
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-3">
-          <h2 className="text-lg font-semibold text-white">CV parsed successfully</h2>
-          <p className="text-slate-300">{result.full_name}</p>
-          <p className="text-slate-400 text-sm">
-            {result.experience_count} experience entries, {result.project_count} projects
-          </p>
-          <button
-            onClick={() => navigate('/tailor')}
-            className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-4 py-2 rounded-lg transition"
-          >
-            Tailor this CV
-          </button>
-        </div>
-      )}
+      <PreviousCVsSection onSelect={handleSelectExisting} />
     </div>
   )
 }

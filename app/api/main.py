@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from app.api.routes import ats, history, parse, preview, qa, structure, tailor
+from app.api.routes import ats, cover_letter, history, master_cvs, parse, preview, qa, structure, tailor
 from app.auth.config import auth_backend, fastapi_users
 from app.auth.schemas import UserCreate, UserRead, UserUpdate
 from app.config import settings
@@ -63,6 +63,8 @@ def create_app() -> FastAPI:
     app.include_router(structure.router, prefix="/api")
     app.include_router(qa.router, prefix="/api")
     app.include_router(ats.router, prefix="/api")
+    app.include_router(master_cvs.router, prefix="/api")
+    app.include_router(cover_letter.router, prefix="/api")
 
     @app.get("/api/health")
     async def health():

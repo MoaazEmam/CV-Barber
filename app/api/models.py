@@ -82,3 +82,17 @@ class ApplicationDetail(BaseModel):
     general_ats_score: int | None
     ats_improvement_points: dict | None
     section_config: dict | None
+    cover_letter: str | None = None
+
+
+class MasterCVListItem(BaseModel):
+    id: UUID
+    full_name: str
+    experience_count: int
+    project_count: int
+    skills_count: int
+    created_at: datetime
+
+
+class MasterCVListResponse(BaseModel):
+    master_cvs: list[MasterCVListItem]

@@ -14,14 +14,13 @@ object matching this structure:
     {{
       "institution": "string",
       "degree": "string",
-      "faculty":"string",
+      "faculty": "string or null",
       "field": "string",
       "date_range": {{"start": "string", "end": "string or null"}},
       "gpa": "string or null",
       "relevant_courses": ["string"]
     }}
   ],
-  "certifications":["string"],
   "experience": [
     {{
       "title": "string",

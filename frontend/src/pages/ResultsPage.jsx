@@ -37,7 +37,7 @@ function ScoreMeter({ score, label }) {
   )
 }
 
-function SectionEditor({ masterCvId, applicationId, initialConfig }) {
+function SectionEditor({ applicationId, initialConfig, onSaved }) {
   const [structure, setStructure] = useState(null)
   const [loading, setLoading] = useState(true)
   const [state, setState] = useState({}) // { sectionKey: { enabled, subs: { subKey: bool } } }
@@ -46,11 +46,11 @@ function SectionEditor({ masterCvId, applicationId, initialConfig }) {
   const [errorMsg, setErrorMsg] = useState('')
 
   useEffect(() => {
-    if (!masterCvId) return
+    if (!applicationId) return
     let alive = true
     setLoading(true)
     api
-      .get(`/api/cv/structure/${masterCvId}`)
+      .get(`/api/applications/${applicationId}/structure`)
       .then((res) => {
         if (!alive) return
         setStructure(res.data)
@@ -78,7 +78,7 @@ function SectionEditor({ masterCvId, applicationId, initialConfig }) {
       alive = false
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [masterCvId])
+  }, [applicationId])
 
   const toggleSection = (sectionKey, enabled) => {
     setState((prev) => {
@@ -120,6 +120,7 @@ function SectionEditor({ masterCvId, applicationId, initialConfig }) {
       await api.patch(`/api/applications/${applicationId}/sections`, { section_config })
       setSuccessMsg('Sections saved')
       setTimeout(() => setSuccessMsg(''), 2000)
+      onSaved?.()
     } catch (err) {
       console.error('Save failed', err)
       setErrorMsg('Failed to save sections')
@@ -339,6 +340,132 @@ function QAPanel({ applicationId }) {
   )
 }
 
+function CoverLetterPanel({ applicationId, initialCoverLetter }) {
+  const [letter, setLetter] = useState(initialCoverLetter)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    setLetter(initialCoverLetter)
+  }, [initialCoverLetter])
+
+  const generate = async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const res = await api.post(`/api/applications/${applicationId}/cover-letter`)
+      setLetter(res.data.cover_letter)
+    } catch (err) {
+      const status = err.response?.status
+      const detail = err.response?.data?.detail
+      if (status === 429) {
+        const m = (detail || '').match(/(\d+)/)
+        const sec = m ? m[1] : '60'
+        setError(`Rate limit reached. Try again in ${sec} seconds.`)
+      } else if (status === 503) {
+        setError('Daily usage limit reached. The service resets at midnight.')
+      } else {
+        setError(typeof detail === 'string' ? detail : 'Failed to generate cover letter.')
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const downloadCoverLetter = async (format) => {
+    try {
+      const res = await api.get(
+        `/api/applications/${applicationId}/cover-letter/download?format=${format}`,
+        { responseType: 'blob' },
+      )
+      const disposition = res.headers['content-disposition'] || ''
+      const match = disposition.match(/filename="?([^"]+)"?/)
+      const filename = match ? match[1] : `cover_letter.${format}`
+      const url = URL.createObjectURL(res.data)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('Cover letter download failed', err)
+    }
+  }
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(letter)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch (err) {
+      console.error('Copy failed', err)
+    }
+  }
+
+  return (
+    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+      <h2 className="text-lg font-semibold text-white mb-1">Cover Letter</h2>
+      <p className="text-slate-400 text-sm mb-4">
+        Generate a tailored cover letter for this application
+      </p>
+
+      {!letter ? (
+        <button
+          onClick={generate}
+          disabled={loading}
+          className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-medium py-2.5 rounded-lg transition"
+        >
+          {loading ? 'Generating...' : 'Generate Cover Letter'}
+        </button>
+      ) : (
+        <div className="space-y-4">
+          <div className="bg-slate-800 rounded-xl p-4">
+            <p className="text-slate-300 leading-relaxed whitespace-pre-wrap text-sm">{letter}</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={copy}
+              className="bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm px-3 py-1.5 rounded-lg transition"
+            >
+              {copied ? 'Copied!' : 'Copy'}
+            </button>
+            <button
+              onClick={() => downloadCoverLetter('txt')}
+              className="bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm px-3 py-1.5 rounded-lg transition"
+            >
+              Download TXT
+            </button>
+            <button
+              onClick={() => downloadCoverLetter('docx')}
+              className="bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm px-3 py-1.5 rounded-lg transition"
+            >
+              Download DOCX
+            </button>
+            <button
+              onClick={() => downloadCoverLetter('pdf')}
+              className="bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm px-3 py-1.5 rounded-lg transition"
+            >
+              Download PDF
+            </button>
+            <button
+              onClick={generate}
+              disabled={loading}
+              className="bg-slate-800 hover:bg-slate-700 disabled:opacity-50 border border-slate-700 text-slate-400 hover:text-slate-200 text-sm px-3 py-1.5 rounded-lg transition"
+            >
+              {loading ? 'Regenerating...' : 'Regenerate'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {error && <p className="text-red-400 text-sm mt-2">{error}</p>}
+    </div>
+  )
+}
+
 function ATSPanel({ masterCvId, applicationId, initialGeneral, initialJob }) {
   const [general, setGeneral] = useState(initialGeneral)
   const [job, setJob] = useState(initialJob)
@@ -483,6 +610,7 @@ export default function ResultsPage() {
   const [effectiveMasterCvId, setEffectiveMasterCvId] = useState(masterCvId)
   const [initialGeneral, setInitialGeneral] = useState(null)
   const [initialJob, setInitialJob] = useState(null)
+  const [initialCoverLetter, setInitialCoverLetter] = useState(null)
 
   const hasResult = currentApplicationId === id && tailoredResult
 
@@ -549,6 +677,7 @@ export default function ResultsPage() {
             improvements: d.job_improvement_points?.improvements || [],
           })
         }
+        setInitialCoverLetter(d.cover_letter || null)
         if (!masterCvId) {
           setMasterCv(d.master_cv_id, null)
         }
@@ -614,22 +743,35 @@ export default function ResultsPage() {
     }
   }
 
+  const fetchPreview = async () => {
+    setPreviewLoading(true)
+    try {
+      const res = await api.get(`/api/preview/${id}`)
+      setPreviewHtml(res.data)
+    } catch (err) {
+      console.error('Preview failed', err)
+    } finally {
+      setPreviewLoading(false)
+    }
+  }
+
   const togglePreview = async () => {
     if (previewOpen) {
       setPreviewOpen(false)
       return
     }
     setPreviewOpen(true)
-    if (!previewHtml) {
-      setPreviewLoading(true)
-      try {
-        const res = await api.get(`/api/preview/${id}`)
-        setPreviewHtml(res.data)
-      } catch (err) {
-        console.error('Preview failed', err)
-      } finally {
-        setPreviewLoading(false)
-      }
+    await fetchPreview()
+  }
+
+  const handleSectionsSaved = async () => {
+    // Always re-fetch after saving so the preview reflects the new section config.
+    // If the preview panel is open, refresh it immediately; if closed, clear the
+    // cache so the next open gets a fresh render.
+    if (previewOpen) {
+      await fetchPreview()
+    } else {
+      setPreviewHtml('')
     }
   }
 
@@ -639,6 +781,20 @@ export default function ResultsPage() {
     resetCvFlow()
     useAppStore.getState().setMasterCv(keepMasterId, keepMasterMeta)
     navigate('/tailor')
+  }
+
+  const changeJobDetails = () => {
+    navigate('/tailor', {
+      state: {
+        prefill: {
+          jobTitle: r.job_title,
+          companyName: r.company_name,
+          jobDescription: r.job_description || '',
+          topNExperience: experiences.length || 3,
+          topNProjects: projects.length || 3,
+        },
+      },
+    })
   }
 
   return (
@@ -733,15 +889,15 @@ export default function ResultsPage() {
         )}
       </div>
 
-      {effectiveMasterCvId && (
-        <SectionEditor
-          masterCvId={effectiveMasterCvId}
-          applicationId={id}
-          initialConfig={sectionConfig}
-        />
-      )}
-
       <QAPanel applicationId={id} />
+
+      <CoverLetterPanel applicationId={id} initialCoverLetter={initialCoverLetter} />
+
+      <SectionEditor
+        applicationId={id}
+        initialConfig={sectionConfig}
+        onSaved={handleSectionsSaved}
+      />
 
       <div className="flex flex-wrap gap-3">
         <button
@@ -767,6 +923,12 @@ export default function ResultsPage() {
           className="bg-slate-800 hover:bg-slate-700 text-white font-medium px-4 py-2 rounded-lg transition"
         >
           Tailor another job
+        </button>
+        <button
+          onClick={changeJobDetails}
+          className="bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 font-medium px-4 py-2 rounded-lg border border-slate-700 transition"
+        >
+          Change job details
         </button>
       </div>
 
