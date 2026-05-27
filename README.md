@@ -1,16 +1,23 @@
 # CV Barber
 
-Tailor your CV to any job description in seconds. Upload your CV, paste a job description, and get a filtered, reordered, and tailored CV as a DOCX or PDF — without changing a single word of your original content.
+Tailor your CV to any job description in seconds. Upload once, apply everywhere — without rewriting a single bullet point.
+
+CV Barber parses your CV into structured data, scores every experience and project entry for relevance against a job description, picks the best ones, writes a tailored summary, and outputs a polished DOCX or PDF. It also generates cover letters, answers application questions, and scores your CV against ATS systems.
 
 ---
 
-## How it works
+## Features
 
-1. **Upload your CV** (PDF or DOCX) — the app parses it into structured data once
-2. **Paste a job description** — the LLM scores each experience and project entry by relevance, picks the best ones, and generates a tailored summary
-3. **Download or preview** — get your tailored CV as DOCX or PDF instantly
-
-The app never rewrites your bullet points or descriptions. It only selects, filters, and reorders.
+- **CV parsing** — upload a PDF or DOCX and get a structured master CV stored in your account
+- **Smart tailoring** — LLM scores each experience and project by relevance, selects the top N, and writes a job-specific summary
+- **ATS scoring** — general CV quality score and job-match score with matched/missing keywords and improvement suggestions
+- **Application Q&A** — paste questions from a job application and get tailored answers grounded in your CV
+- **Cover letter generator** — one-click cover letter downloadable as TXT, DOCX, or PDF
+- **Section editor** — toggle individual CV sections and entries on/off; preview updates instantly
+- **In-browser preview** — live HTML preview of your tailored CV before downloading
+- **Download** — export as DOCX or PDF
+- **History** — all past applications saved and accessible; re-tailor or edit job details at any time
+- **Reuse your CV** — pick any previously uploaded CV without re-uploading
 
 ---
 
@@ -18,166 +25,215 @@ The app never rewrites your bullet points or descriptions. It only selects, filt
 
 | Layer | Technology |
 |---|---|
-| Backend API | FastAPI |
-| LLM | Google Gemini (configurable) |
-| Local LLM | Ollama |
+| Backend | FastAPI + Uvicorn |
+| Primary LLM | Groq (`llama-3.3-70b-versatile`) |
+| Fallback LLM | Google Gemini (`gemini-2.5-flash`) |
 | PDF extraction | PyMuPDF (fitz) |
 | DOCX extraction | python-docx |
 | Output generation | python-docx + WeasyPrint |
 | Structured output | Pydantic v2 |
-| Frontend | Vanilla HTML/CSS/JS |
-| Deployment | Docker + Railway |
+| Database | PostgreSQL (async SQLAlchemy + asyncpg) |
+| Migrations | Alembic |
+| Auth | FastAPI Users (JWT bearer) |
+| Frontend | React + Vite + Tailwind v4 |
+| State management | Zustand |
+| Routing | React Router |
+| Deployment | Docker Compose + Railway |
 
 ---
 
-## Project structure
+## Getting started
 
-```
-cv-barber/
-├── app/
-│   ├── config.py               # settings from .env
-│   ├── schemas/                # Pydantic models (BaseCV, MasterCV, TailoredCV)
-│   ├── extraction/             # PDF and DOCX text extraction
-│   ├── llm/                    # LLM clients, prompts, parser, scorer
-│   ├── generation/             # DOCX and PDF output generation
-│   ├── api/                    # FastAPI routes and session management
-│   │   └── routes/             # /parse, /tailor, /download, /preview
-│   └── static/                 # frontend (index.html, styles.css, app.js)
-├── tests/                      # pytest test suite
-├── scripts/                    # dev utilities (smoke test)
-├── Dockerfile
-├── docker-compose.yml
-├── pyproject.toml
-└── .env.example
-```
+### Option A — Full Docker stack (recommended)
 
----
+The quickest way to run the entire app with a real Postgres database.
 
-## Local development
-
-### Prerequisites
-
-- Python 3.12+
-- [Poetry](https://python-poetry.org/)
-- [Ollama](https://ollama.com/) (optional, for local LLM)
-
-### Setup
+**Prerequisites:** Docker Desktop
 
 ```bash
-# clone the repo
 git clone https://github.com/MoaazEmam/CV-Barber.git
 cd CV-Barber
-
-# install dependencies
-poetry install
-
-# copy and fill in environment variables
-cp .env.example .env
+cp .env.example .env   # then fill in your keys (see Environment variables below)
+docker compose up -d --build
 ```
 
-Edit `.env` — at minimum set your LLM provider and API key:
+Open `http://localhost:8000`. Migrations run automatically on container start.
 
 ```bash
-LLM_PROVIDER=gemini
-GEMINI_API_KEY=your_key_here
-GEMINI_MODEL=gemini-3.1-flash-lite-preview
-```
-
-### Run
-
-```bash
-poetry run uvicorn app.api.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-Open `http://localhost:8000`.
-
-### Using Ollama locally
-
-```bash
-# install and pull a model
-ollama pull llama3.2
-
-# set in .env
-LLM_PROVIDER=ollama
-OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=llama3.2
-```
-
-### Run tests
-
-```bash
-poetry run pytest tests/ -v
+docker compose logs -f app   # stream logs
+docker compose down           # stop (data is preserved in the postgres_data volume)
+docker compose down -v        # stop AND wipe the database
 ```
 
 ---
 
-## Docker
+### Option B — Local dev (backend + frontend separately)
+
+**Prerequisites:** Python 3.12+, [Poetry](https://python-poetry.org/), Node 18+, Docker (for Postgres only)
 
 ```bash
-# build
-docker build -t cv-barber .
+# 1. Clone and install backend dependencies
+git clone https://github.com/MoaazEmam/CV-Barber.git
+cd CV-Barber
+poetry install
 
-# run
-docker run -p 8000:8000 \
-  -e LLM_PROVIDER=gemini \
-  -e GEMINI_API_KEY=your_key \
-  -e GEMINI_MODEL=gemini-3.1-flash-lite-preview \
-  -e SESSION_STORE=memory \
-  cv-barber
+# 2. Copy and fill in environment variables
+cp .env.example .env
+
+# 3. Start only the database
+docker compose up -d postgres
+
+# 4. Apply migrations and start the backend
+alembic upgrade head
+uvicorn app.api.main:app --reload --port 8000
+
+# 5. In a separate terminal, start the frontend dev server
+cd frontend
+npm install
+npm run dev   # http://localhost:5173 — proxies /api, /auth, /users to :8000
+```
+
+After any frontend change in production mode:
+```bash
+cd frontend && npm run build   # writes bundle to app/static/
+docker compose restart app
 ```
 
 ---
 
 ## Environment variables
 
-| Variable | Default | Description |
-|---|---|---|
-| `LLM_PROVIDER` | `ollama` | `gemini` or `ollama` |
-| `GEMINI_API_KEY` | — | Google AI Studio API key |
-| `GEMINI_MODEL` | `gemini-3.1-flash-lite-preview` | Gemini model name |
-| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server URL |
-| `OLLAMA_MODEL` | `llama3.2` | Ollama model name |
-| `SESSION_STORE` | `memory` | `memory` or `redis` |
-| `REDIS_URL` | `redis://localhost:6379` | Redis URL (if SESSION_STORE=redis) |
-| `TOP_N_EXPERIENCE` | `3` | Default max experience entries |
-| `TOP_N_PROJECTS` | `5` | Default max project entries |
-| `ENV` | `development` | `development` or `production` |
 
----
+| Variable | Default | Required | Description |
+|---|---|---|---|
+| `DATABASE_URL` | — | **yes** | Async Postgres URL: `postgresql+asyncpg://user:pass@host:port/db` |
+| `SECRET_KEY` | — | **yes** | JWT signing key — generate with `openssl rand -hex 32` |
+| `LLM_PROVIDER` | `groq` | no | `groq`, `gemini`, or `ollama` |
+| `GROQ_API_KEY` | — | no | Single Groq key (get one free at [console.groq.com](https://console.groq.com)) |
+| `GROQ_API_KEYS` | — | no | Comma-separated Groq keys — preferred; ~14,400 req/day per key |
+| `GROQ_MODEL` | `llama-3.3-70b-versatile` | no | Groq model name |
+| `GEMINI_API_KEY` | — | no | Single Gemini key — used as automatic fallback when Groq is exhausted |
+| `GEMINI_API_KEYS` | — | no | Comma-separated Gemini keys; same fallback role |
+| `GEMINI_MODEL` | `gemini-2.5-flash` | no | Gemini model name |
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | no | Ollama server URL |
+| `OLLAMA_MODEL` | `llama3.1` | no | Ollama model name |
+| `OUTPUT_FORMAT` | `pdf` | no | Default download format (`pdf` or `docx`) |
+| `TOP_N_EXPERIENCE` | `3` | no | Default max experience entries to include |
+| `TOP_N_PROJECTS` | `3` | no | Default max project entries to include |
+| `ENV` | `development` | no | `development` (pretty logs, SQL echo) or `production` (JSON logs) |
+| `API_HOST` | `0.0.0.0` | no | Uvicorn bind host |
+| `API_PORT` | `8000` | no | Uvicorn bind port |
 
-## Deployment
+### Recommended free setup
 
-Deployed on [Railway](https://railway.app). Every push to `main` triggers a redeploy.
+The easiest free configuration is Groq as primary with Gemini as fallback:
 
-To deploy your own instance:
+```bash
+LLM_PROVIDER=groq
+GROQ_API_KEYS=your_groq_key_1,your_groq_key_2
+GEMINI_API_KEY=your_gemini_key   # optional fallback
+```
 
-1. Fork this repo
-2. Create a new project on Railway → Deploy from GitHub
-3. Add environment variables in the Railway dashboard
-4. Done — Railway builds the Docker image and gives you a public URL
+Groq offers ~14,400 requests/day per free key. When Groq is exhausted, Gemini is used automatically as a fallback. Get Groq keys at [console.groq.com](https://console.groq.com) and Gemini keys at [aistudio.google.com](https://aistudio.google.com).
 
 ---
 
 ## API endpoints
 
+### Auth
 | Method | Endpoint | Description |
 |---|---|---|
-| `POST` | `/api/parse` | Upload CV file → returns session ID |
-| `POST` | `/api/tailor` | Tailor CV to job description → returns tailored session ID |
-| `GET` | `/api/download/{id}?format=docx` | Download tailored CV as DOCX |
-| `GET` | `/api/download/{id}?format=pdf` | Download tailored CV as PDF |
-| `GET` | `/api/preview/{id}` | HTML preview of tailored CV |
-| `GET` | `/api/health` | Health check |
+| `POST` | `/auth/register` | Register a new account (JSON) |
+| `POST` | `/auth/jwt/login` | Login → returns `access_token` (form-urlencoded) |
+| `GET` | `/users/me` | Get current user profile |
 
-Full interactive API docs available at `/docs` (FastAPI Swagger UI).
+### CV management
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/api/parse` | Upload PDF/DOCX → parse and store master CV |
+| `GET` | `/api/master-cvs` | List all uploaded master CVs |
+| `POST` | `/api/tailor` | Tailor master CV to a job description |
+| `GET` | `/api/download/{id}?format=docx\|pdf` | Download tailored CV |
+| `GET` | `/api/preview/{id}` | HTML preview of tailored CV |
+| `GET` | `/api/history` | List all tailored applications |
+| `GET` | `/api/applications/{id}` | Full application detail |
+
+### Section editor
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/applications/{id}/structure` | Section tree for a tailored CV (use this in the editor) |
+| `PATCH` | `/api/applications/{id}/sections` | Save section toggle state |
+
+### ATS scoring
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/api/cv/{id}/ats/general` | General CV quality score |
+| `POST` | `/api/applications/{id}/ats/job` | Job-match ATS score |
+
+### Q&A
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/api/applications/{id}/qa` | Get tailored answers to application questions |
+| `GET` | `/api/applications/{id}/qa` | Fetch previously answered questions |
+
+### Cover letter
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/api/applications/{id}/cover-letter` | Generate and store a cover letter |
+| `GET` | `/api/applications/{id}/cover-letter/download?format=txt\|docx\|pdf` | Download cover letter |
+
+Interactive API docs at `/docs` (FastAPI Swagger UI).
 
 ---
 
-## Notes
+## Project structure
 
-- Sessions are stored in memory by default — they are lost when the server restarts. For persistent sessions across restarts or multiple containers, set `SESSION_STORE=redis`.
-- The free tier of Gemini API has rate limits. For personal/low-volume use this is fine. For higher traffic, consider upgrading your API plan.
-- No user data is stored permanently. CVs and job descriptions exist only in memory for the duration of your session.
+```
+app/
+├── api/
+│   ├── main.py          # FastAPI app factory, middleware, SPA static serving
+│   ├── models.py        # Request/response Pydantic models
+│   ├── dependencies.py  # Async DB CRUD functions
+│   └── routes/          # parse, tailor, preview, history, structure,
+│                        # qa, ats, master_cvs, cover_letter
+├── auth/                # JWT auth via FastAPI Users
+├── db/                  # SQLAlchemy models, engine, migrations
+├── schemas/             # Domain models: MasterCV, TailoredCV, cv_blocks
+├── extraction/          # PDF (PyMuPDF) and DOCX text extraction
+├── llm/                 # LLM clients (Groq, Gemini, Ollama), prompts,
+│                        # parser, scorer, qa, ats_scorer, cover_letter,
+│                        # key rotation, fallback, retry
+├── generation/          # DOCX + PDF output, section filter, Jinja2 template
+└── config.py            # Settings (pydantic-settings, reads .env)
+
+frontend/                # React + Vite + Tailwind v4
+alembic/                 # Async-mode Alembic migrations
+tests/                   # pytest suite (async SQLite in-memory)
+```
+
+---
+
+## Running tests
+
+```bash
+poetry run pytest tests/ -v
+```
+
+Tests use an in-memory SQLite database — no Postgres required.
+
+---
+
+## Deployment
+
+The app is deployed on [Railway](https://railway.app) using the included `docker-compose.yml`.
+
+To deploy your own instance:
+
+1. Fork this repo
+2. Create a new project on Railway → **Deploy from GitHub**
+3. Add a Postgres plugin to the project
+4. Set all required environment variables (`DATABASE_URL`, `SECRET_KEY`, LLM keys)
+5. Railway builds the Docker image, runs migrations, and gives you a public URL
 
 ---
 
