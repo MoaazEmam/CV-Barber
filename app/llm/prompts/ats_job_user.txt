@@ -4,4 +4,4 @@ Job Description:
 Tailored CV:
 {tailored_cv_json}
 
-Score this CV's match to the job description above.
+Score this CV's match to the job description above. Ground every matched/missing keyword and every improvement in specific content from both the job description and the CV — name actual roles, projects, sections, and JD requirements by name. Do not give generic advice.

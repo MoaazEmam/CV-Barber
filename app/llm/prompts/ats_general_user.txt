@@ -1,4 +1,4 @@
-CV:
+CV (JSON):
 {master_cv_json}
 
-Evaluate this CV for general ATS compatibility and quality.
+Evaluate this CV. Ground every strength and improvement in the actual content above — name specific roles, projects, or sections by their real names. Do not give generic advice.
