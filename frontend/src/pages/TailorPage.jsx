@@ -1,19 +1,22 @@
 import { useState } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import api from '../lib/axios'
 import useAppStore from '../store/useAppStore'
 
 export default function TailorPage() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const prefill = location.state?.prefill
+
   const masterCvId = useAppStore((s) => s.masterCvId)
   const masterCvMeta = useAppStore((s) => s.masterCvMeta)
   const setTailoredResult = useAppStore((s) => s.setTailoredResult)
 
-  const [jobTitle, setJobTitle] = useState('')
-  const [companyName, setCompanyName] = useState('')
-  const [jobDescription, setJobDescription] = useState('')
-  const [topNExperience, setTopNExperience] = useState(3)
-  const [topNProjects, setTopNProjects] = useState(3)
+  const [jobTitle, setJobTitle] = useState(prefill?.jobTitle ?? '')
+  const [companyName, setCompanyName] = useState(prefill?.companyName ?? '')
+  const [jobDescription, setJobDescription] = useState(prefill?.jobDescription ?? '')
+  const [topNExperience, setTopNExperience] = useState(prefill?.topNExperience ?? 3)
+  const [topNProjects, setTopNProjects] = useState(prefill?.topNProjects ?? 3)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -58,6 +61,11 @@ export default function TailorPage() {
         <h1 className="text-3xl font-bold text-white">Tailor your CV</h1>
         {masterCvMeta && (
           <p className="text-slate-400 mt-1">Tailoring for {masterCvMeta.full_name}</p>
+        )}
+        {prefill && (
+          <p className="text-indigo-400 text-sm mt-1">
+            Pre-filled from a previous application — update the details and re-tailor.
+          </p>
         )}
       </div>
 
