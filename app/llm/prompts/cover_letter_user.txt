@@ -1,0 +1,7 @@
+Tailored CV:
+{tailored_cv_json}
+
+Job Description:
+{job_description}
+
+Write the cover letter now.
