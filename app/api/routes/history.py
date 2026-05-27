@@ -69,4 +69,5 @@ async def get_application_detail(
         general_ats_score=master.general_ats_score if master else None,
         ats_improvement_points=master.ats_improvement_points if master else None,
         section_config=application.section_config,
+        cover_letter=application.cover_letter,
     )

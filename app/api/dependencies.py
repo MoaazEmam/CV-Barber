@@ -1,3 +1,4 @@
+from datetime import datetime
 from uuid import UUID, uuid4
 
 from sqlalchemy import select
@@ -71,3 +72,27 @@ async def get_application(db: AsyncSession, application_id: UUID) -> TailoredCV:
     if row is None:
         raise KeyError(f"Application {application_id} not found")
     return TailoredCV.model_validate(row.tailored_cv_data)
+
+
+async def list_master_cvs(db: AsyncSession, user_id: UUID) -> list[dict]:
+    """Return a lightweight list of the user's uploaded master CVs (no raw file bytes)."""
+    result = await db.execute(
+        select(MasterCVModel)
+        .where(MasterCVModel.user_id == user_id)
+        .order_by(MasterCVModel.created_at.desc())
+    )
+    rows = result.scalars().all()
+    items = []
+    for row in rows:
+        data: dict = row.parsed_data or {}
+        items.append(
+            {
+                "id": row.id,
+                "full_name": data.get("full_name", ""),
+                "experience_count": len(data.get("experience", [])),
+                "project_count": len(data.get("projects", [])),
+                "skills_count": len(data.get("skills", [])),
+                "created_at": row.created_at,
+            }
+        )
+    return items
