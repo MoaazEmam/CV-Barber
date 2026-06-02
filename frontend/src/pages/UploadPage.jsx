@@ -33,9 +33,7 @@ function PreviousCVsSection({ onSelect }) {
         if (!alive) return
         setCvs(res.data?.master_cvs || [])
       })
-      .catch(() => {
-        // silently ignore — first-time users won't see the section
-      })
+      .catch(() => {})
       .finally(() => alive && setLoading(false))
     return () => {
       alive = false
@@ -47,26 +45,26 @@ function PreviousCVsSection({ onSelect }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-3">
-        <div className="flex-1 h-px bg-slate-700" />
-        <span className="text-slate-500 text-sm">or use a previously uploaded CV</span>
-        <div className="flex-1 h-px bg-slate-700" />
+        <div className="flex-1 h-px bg-[var(--border)]" />
+        <span className="text-[var(--text-muted)] text-sm">or use a previously uploaded CV</span>
+        <div className="flex-1 h-px bg-[var(--border)]" />
       </div>
       <div className="space-y-2">
         {cvs.map((cv) => (
           <div
             key={cv.id}
-            className="flex items-center justify-between bg-slate-900 border border-slate-800 rounded-xl px-4 py-3"
+            className="flex items-center justify-between bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-3"
           >
             <div>
-              <p className="text-white font-medium text-sm">{cv.full_name}</p>
-              <p className="text-slate-500 text-xs mt-0.5">
+              <p className="text-[var(--text-primary)] font-medium text-sm">{cv.full_name}</p>
+              <p className="text-[var(--text-muted)] text-xs mt-0.5">
                 {cv.experience_count} exp · {cv.project_count} projects · {cv.skills_count} skills
                 {' · '}{formatDate(cv.created_at)}
               </p>
             </div>
             <button
               onClick={() => onSelect(cv)}
-              className="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium px-3 py-1.5 rounded-lg transition ml-3 shrink-0"
+              className="bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-sm font-medium px-3 py-1.5 rounded-lg transition-colors ml-3 shrink-0"
             >
               Use this CV
             </button>
@@ -107,7 +105,6 @@ export default function UploadPage() {
     if (!file) return
     setLoading(true)
     setError('')
-    setResult(null)
     try {
       const form = new FormData()
       form.append('file', file)
@@ -122,7 +119,7 @@ export default function UploadPage() {
       navigate('/tailor')
     } catch (err) {
       const detail = err.response?.data?.detail
-      setError(typeof detail === 'string' ? detail : 'Failed to parse CV.')
+      setError(typeof detail === 'string' ? detail : 'Failed to read CV.')
     } finally {
       setLoading(false)
     }
@@ -139,11 +136,13 @@ export default function UploadPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="max-w-2xl mx-auto space-y-5">
       <div>
-        <h1 className="text-3xl font-bold text-white">Upload your CV</h1>
-        <p className="text-slate-400 mt-1">
-          Upload a PDF or DOCX and we'll parse it into your master CV
+        <h1 className="text-4xl font-bold tracking-tight text-[var(--text-primary)]">
+          Upload your CV
+        </h1>
+        <p className="text-[var(--text-secondary)] mt-2 text-[15px]">
+          We'll read it once and use it as the foundation for every application.
         </p>
       </div>
 
@@ -154,17 +153,19 @@ export default function UploadPage() {
         }}
         onDragLeave={() => setDragOver(false)}
         onDrop={onDrop}
-        className={`border-2 border-dashed rounded-2xl p-12 text-center transition ${
-          dragOver ? 'border-indigo-500 bg-slate-900/60' : 'border-slate-700'
+        className={`border rounded-xl p-14 text-center transition-all cursor-default ${
+          dragOver
+            ? 'border-dashed border-[var(--accent)] bg-[var(--accent-subtle)]'
+            : 'border-[rgba(255,255,255,0.08)] bg-[radial-gradient(ellipse_at_center,rgba(94,106,210,0.04)_0%,transparent_70%)]'
         }`}
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
           fill="none"
           viewBox="0 0 24 24"
-          strokeWidth={1.5}
+          strokeWidth={1.2}
           stroke="currentColor"
-          className="w-10 h-10 mx-auto text-slate-500"
+          className="w-14 h-14 mx-auto text-[var(--text-muted)]"
         >
           <path
             strokeLinecap="round"
@@ -172,14 +173,32 @@ export default function UploadPage() {
             d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 7.5 7.5 12M12 7.5v9"
           />
         </svg>
-        <p className="mt-3 text-slate-300">Drag and drop your CV here</p>
-        <p className="text-slate-500 text-sm my-1">or</p>
-        <button
-          onClick={() => inputRef.current?.click()}
-          className="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg transition mt-2"
-        >
-          Browse files
-        </button>
+
+        {file ? (
+          <div className="mt-4">
+            <p className="text-sm text-[var(--text-secondary)]">
+              <span className="text-[var(--text-primary)] font-medium">{file.name}</span>
+              {' · '}{formatSize(file.size)}
+            </p>
+            <button
+              onClick={() => setFile(null)}
+              className="mt-2 text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
+            >
+              Remove
+            </button>
+          </div>
+        ) : (
+          <p className="mt-4 text-[var(--text-secondary)]">
+            Drag and drop your CV here,{' '}
+            <button
+              onClick={() => inputRef.current?.click()}
+              className="text-[var(--accent)] hover:opacity-80 transition-opacity font-medium underline underline-offset-2"
+            >
+              or browse
+            </button>
+          </p>
+        )}
+
         <input
           ref={inputRef}
           type="file"
@@ -187,19 +206,20 @@ export default function UploadPage() {
           hidden
           onChange={(e) => pickFile(e.target.files[0])}
         />
-        {file && (
-          <p className="mt-4 text-sm text-slate-400">
-            <span className="text-slate-200">{file.name}</span> · {formatSize(file.size)}
-          </p>
-        )}
       </div>
+
+      <p className="text-xs text-[var(--text-muted)] text-center -mt-1">.pdf and .docx supported</p>
 
       <button
         onClick={onParse}
         disabled={!file || loading}
-        className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-2.5 rounded-lg transition"
+        className={`w-full font-medium h-11 rounded-lg transition-colors ${
+          file && !loading
+            ? 'bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white'
+            : 'bg-[var(--surface-raised)] text-[var(--text-muted)] cursor-not-allowed'
+        }`}
       >
-        {loading ? 'Parsing...' : 'Parse CV'}
+        {loading ? 'Analyzing...' : 'Analyze CV'}
       </button>
 
       {error && <p className="text-red-400 text-sm">{error}</p>}

@@ -4,13 +4,13 @@ import api from '../lib/axios'
 import useAppStore from '../store/useAppStore'
 
 function scoreClasses(score) {
-  if (score >= 7) return 'bg-green-900 text-green-300'
-  if (score >= 4) return 'bg-yellow-900 text-yellow-300'
-  return 'bg-red-900 text-red-300'
+  if (score >= 7) return 'bg-emerald-500/15 text-emerald-400'
+  if (score >= 4) return 'bg-amber-500/15 text-amber-400'
+  return 'bg-red-500/15 text-red-400'
 }
 
 function meterColor(score) {
-  if (score == null) return 'text-slate-400'
+  if (score == null) return 'text-[var(--text-muted)]'
   if (score >= 70) return 'text-green-400'
   if (score >= 40) return 'text-yellow-400'
   return 'text-red-400'
@@ -32,7 +32,7 @@ function ScoreMeter({ score, label }) {
   return (
     <div className="flex flex-col items-center">
       <div className={`text-5xl font-bold ${color}`}>{display}</div>
-      <div className="text-slate-500 text-xs mt-1 uppercase tracking-wide">{label}</div>
+      <div className="text-[var(--text-muted)] text-xs mt-1 uppercase tracking-wide">{label}</div>
     </div>
   )
 }
@@ -40,7 +40,7 @@ function ScoreMeter({ score, label }) {
 function SectionEditor({ applicationId, initialConfig, onSaved }) {
   const [structure, setStructure] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [state, setState] = useState({}) // { sectionKey: { enabled, subs: { subKey: bool } } }
+  const [state, setState] = useState({})
   const [saving, setSaving] = useState(false)
   const [successMsg, setSuccessMsg] = useState('')
   const [errorMsg, setErrorMsg] = useState('')
@@ -130,48 +130,42 @@ function SectionEditor({ applicationId, initialConfig, onSaved }) {
   }
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-      <h2 className="text-lg font-semibold text-white mb-4">CV Sections</h2>
+    <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-6">
+      <h2 className="text-lg font-semibold mb-4">CV Sections</h2>
       {loading ? (
         <div className="space-y-2">
-          <div className="h-6 bg-slate-800 rounded animate-pulse" />
-          <div className="h-6 bg-slate-800 rounded animate-pulse" />
-          <div className="h-6 bg-slate-800 rounded animate-pulse" />
+          <div className="h-6 bg-[var(--surface-raised)] rounded animate-pulse" />
+          <div className="h-6 bg-[var(--surface-raised)] rounded animate-pulse" />
+          <div className="h-6 bg-[var(--surface-raised)] rounded animate-pulse" />
         </div>
       ) : !structure ? (
-        <p className="text-slate-400 text-sm">No sections found.</p>
+        <p className="text-[var(--text-secondary)] text-sm">No sections found.</p>
       ) : (
         <div className="space-y-4">
           {structure.sections.map((section) => {
             const s = state[section.key]
             if (!s) return null
             return (
-              <div
-                key={section.key}
-                className={s.enabled ? '' : 'opacity-50'}
-              >
+              <div key={section.key} className={s.enabled ? '' : 'opacity-50'}>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={s.enabled}
                     onChange={(e) => toggleSection(section.key, e.target.checked)}
                   />
-                  <span className="text-white font-medium">{section.label}</span>
+                  <span className="font-medium">{section.label}</span>
                 </label>
                 {section.subsections.length > 0 && (
                   <div className="ml-6 mt-2 space-y-1">
                     {section.subsections.map((sub) => (
-                      <label
-                        key={sub.key}
-                        className="flex items-center gap-2 cursor-pointer"
-                      >
+                      <label key={sub.key} className="flex items-center gap-2 cursor-pointer">
                         <input
                           type="checkbox"
                           checked={s.subs[sub.key] ?? true}
                           disabled={!s.enabled}
                           onChange={(e) => toggleSub(section.key, sub.key, e.target.checked)}
                         />
-                        <span className="text-slate-400 text-sm">{sub.label}</span>
+                        <span className="text-[var(--text-secondary)] text-sm">{sub.label}</span>
                       </label>
                     ))}
                   </div>
@@ -182,7 +176,7 @@ function SectionEditor({ applicationId, initialConfig, onSaved }) {
           <button
             onClick={save}
             disabled={saving}
-            className="w-full bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-white font-medium px-4 py-2 rounded-lg transition"
+            className="w-full bg-[var(--surface-raised)] hover:bg-[rgba(255,255,255,0.08)] disabled:opacity-50 font-medium px-4 py-2 rounded-lg transition-colors"
           >
             {saving ? 'Saving...' : 'Save sections'}
           </button>
@@ -208,23 +202,14 @@ function QAPanel({ applicationId }) {
       .get(`/api/applications/${applicationId}/qa`)
       .then((res) => {
         if (!alive) return
-        const items = res.data?.answers || []
-        setHistory(items)
+        setHistory(res.data?.answers || [])
       })
-      .catch((err) => {
-        console.error('Failed to load QA history', err)
-      })
-    return () => {
-      alive = false
-    }
+      .catch((err) => console.error('Failed to load QA history', err))
+    return () => { alive = false }
   }, [applicationId])
 
-  const addQuestion = () => {
-    if (questions.length < 10) setQuestions([...questions, ''])
-  }
-  const removeQuestion = (i) => {
-    setQuestions(questions.filter((_, idx) => idx !== i))
-  }
+  const addQuestion = () => { if (questions.length < 10) setQuestions([...questions, '']) }
+  const removeQuestion = (i) => { setQuestions(questions.filter((_, idx) => idx !== i)) }
   const updateQuestion = (i, val) => {
     const next = [...questions]
     next[i] = val
@@ -261,21 +246,21 @@ function QAPanel({ applicationId }) {
   const allEmpty = questions.every((q) => q.trim().length === 0)
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-      <h2 className="text-lg font-semibold text-white mb-1">Application Questions</h2>
-      <p className="text-slate-400 text-sm mb-4">
+    <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-6">
+      <h2 className="text-lg font-semibold mb-1">Application Questions</h2>
+      <p className="text-[var(--text-secondary)] text-sm mb-4">
         Paste questions from the application and get tailored answers
       </p>
       {history.length > 0 && (
         <div className="mb-6 space-y-3">
-          <h3 className="text-xs uppercase tracking-wide text-slate-500">Previously answered</h3>
+          <h3 className="text-xs uppercase tracking-wide text-[var(--text-muted)]">Previously answered</h3>
           {history.map((item, i) => (
-            <div key={`h-${i}`} className="bg-slate-800 rounded-xl p-4">
-              <p className="text-slate-200 text-sm font-medium mb-2">{item.question}</p>
-              <p className="text-slate-300 leading-relaxed text-sm">{item.answer}</p>
+            <div key={`h-${i}`} className="bg-[var(--surface-raised)] rounded-xl p-4">
+              <p className="text-[var(--text-primary)] text-sm font-medium mb-2">{item.question}</p>
+              <p className="text-[var(--text-secondary)] leading-relaxed text-sm">{item.answer}</p>
               <button
                 onClick={() => copy(item.answer, `h-${i}`)}
-                className="mt-2 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs px-2 py-1 rounded"
+                className="mt-2 bg-[var(--bg)] hover:bg-[rgba(255,255,255,0.05)] text-[var(--text-secondary)] text-xs px-2 py-1 rounded border border-[var(--border)]"
               >
                 {copiedIdx === `h-${i}` ? 'Copied!' : 'Copy'}
               </button>
@@ -292,25 +277,25 @@ function QAPanel({ applicationId }) {
                 value={q}
                 onChange={(e) => updateQuestion(i, e.target.value)}
                 placeholder="Paste a question..."
-                className="flex-1 bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500"
+                className="flex-1 bg-[var(--bg)] border border-[rgba(255,255,255,0.10)] text-[var(--text-primary)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]/30 focus:border-[#5E6AD2]/60 transition-colors placeholder:text-[var(--text-muted)]"
               />
               {questions.length > 1 && (
                 <button
                   onClick={() => removeQuestion(i)}
-                  className="text-slate-500 hover:text-red-400 px-2 py-1"
+                  className="text-[var(--text-muted)] hover:text-red-400 px-2 py-1 transition-colors"
                   aria-label="Remove question"
                 >
                   ×
                 </button>
               )}
             </div>
-            <div className="text-slate-500 text-xs">{q.length} chars</div>
+            <div className="text-[var(--text-muted)] text-xs">{q.length} chars</div>
             {answers[i] && (
-              <div className="bg-slate-800 rounded-xl p-4 mt-2">
-                <p className="text-slate-300 leading-relaxed text-sm">{answers[i].answer}</p>
+              <div className="bg-[var(--surface-raised)] rounded-xl p-4 mt-2">
+                <p className="text-[var(--text-secondary)] leading-relaxed text-sm">{answers[i].answer}</p>
                 <button
                   onClick={() => copy(answers[i].answer, i)}
-                  className="mt-2 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs px-2 py-1 rounded"
+                  className="mt-2 bg-[var(--bg)] hover:bg-[rgba(255,255,255,0.05)] text-[var(--text-secondary)] text-xs px-2 py-1 rounded border border-[var(--border)]"
                 >
                   {copiedIdx === i ? 'Copied!' : 'Copy'}
                 </button>
@@ -323,7 +308,7 @@ function QAPanel({ applicationId }) {
         <button
           onClick={addQuestion}
           disabled={questions.length >= 10}
-          className="bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-white text-sm px-3 py-1.5 rounded-lg"
+          className="bg-[var(--surface-raised)] hover:bg-[rgba(255,255,255,0.08)] disabled:opacity-50 text-[var(--text-secondary)] text-sm px-3 py-1.5 rounded-lg transition-colors"
         >
           Add question
         </button>
@@ -331,7 +316,7 @@ function QAPanel({ applicationId }) {
       <button
         onClick={submit}
         disabled={allEmpty || loading}
-        className="mt-4 w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-medium px-4 py-2 rounded-lg transition"
+        className="mt-4 w-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] disabled:opacity-50 text-white font-medium h-11 rounded-lg transition-colors"
       >
         {loading ? 'Getting answers...' : 'Get answers'}
       </button>
@@ -346,9 +331,7 @@ function CoverLetterPanel({ applicationId, initialCoverLetter }) {
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
 
-  useEffect(() => {
-    setLetter(initialCoverLetter)
-  }, [initialCoverLetter])
+  useEffect(() => { setLetter(initialCoverLetter) }, [initialCoverLetter])
 
   const generate = async () => {
     setLoading(true)
@@ -406,9 +389,9 @@ function CoverLetterPanel({ applicationId, initialCoverLetter }) {
   }
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-      <h2 className="text-lg font-semibold text-white mb-1">Cover Letter</h2>
-      <p className="text-slate-400 text-sm mb-4">
+    <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-6">
+      <h2 className="text-lg font-semibold mb-1">Cover Letter</h2>
+      <p className="text-[var(--text-secondary)] text-sm mb-4">
         Generate a tailored cover letter for this application
       </p>
 
@@ -416,44 +399,35 @@ function CoverLetterPanel({ applicationId, initialCoverLetter }) {
         <button
           onClick={generate}
           disabled={loading}
-          className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-medium py-2.5 rounded-lg transition"
+          className="w-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] disabled:opacity-50 text-white font-medium h-11 rounded-lg transition-colors"
         >
           {loading ? 'Generating...' : 'Generate Cover Letter'}
         </button>
       ) : (
         <div className="space-y-4">
-          <div className="bg-slate-800 rounded-xl p-4">
-            <p className="text-slate-300 leading-relaxed whitespace-pre-wrap text-sm">{letter}</p>
+          <div className="bg-[var(--surface-raised)] rounded-xl p-4">
+            <p className="text-[var(--text-secondary)] leading-relaxed whitespace-pre-wrap text-sm">{letter}</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <button
               onClick={copy}
-              className="bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm px-3 py-1.5 rounded-lg transition"
+              className="bg-[var(--surface-raised)] hover:bg-[rgba(255,255,255,0.08)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-sm px-3 py-1.5 rounded-lg transition-colors"
             >
               {copied ? 'Copied!' : 'Copy'}
             </button>
-            <button
-              onClick={() => downloadCoverLetter('txt')}
-              className="bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm px-3 py-1.5 rounded-lg transition"
-            >
-              Download TXT
-            </button>
-            <button
-              onClick={() => downloadCoverLetter('docx')}
-              className="bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm px-3 py-1.5 rounded-lg transition"
-            >
-              Download DOCX
-            </button>
-            <button
-              onClick={() => downloadCoverLetter('pdf')}
-              className="bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm px-3 py-1.5 rounded-lg transition"
-            >
-              Download PDF
-            </button>
+            {['txt', 'docx', 'pdf'].map((fmt) => (
+              <button
+                key={fmt}
+                onClick={() => downloadCoverLetter(fmt)}
+                className="bg-[var(--surface-raised)] hover:bg-[rgba(255,255,255,0.08)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-sm px-3 py-1.5 rounded-lg transition-colors"
+              >
+                Download {fmt.toUpperCase()}
+              </button>
+            ))}
             <button
               onClick={generate}
               disabled={loading}
-              className="bg-slate-800 hover:bg-slate-700 disabled:opacity-50 border border-slate-700 text-slate-400 hover:text-slate-200 text-sm px-3 py-1.5 rounded-lg transition"
+              className="bg-[var(--surface-raised)] hover:bg-[rgba(255,255,255,0.08)] disabled:opacity-50 border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text-secondary)] text-sm px-3 py-1.5 rounded-lg transition-colors"
             >
               {loading ? 'Regenerating...' : 'Regenerate'}
             </button>
@@ -490,11 +464,8 @@ function ATSPanel({ masterCvId, applicationId, initialGeneral, initialJob }) {
     }
   }
 
-  // If we don't have a persisted score, compute on mount once. Otherwise show stored data.
   useEffect(() => {
-    if (!general || !job) {
-      rescore()
-    }
+    if (!general || !job) rescore()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -511,13 +482,13 @@ function ATSPanel({ masterCvId, applicationId, initialGeneral, initialJob }) {
   }, [general, job])
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+    <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-6">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-white">ATS Scores</h2>
+        <h2 className="text-lg font-semibold">ATS Scores</h2>
         <button
           onClick={rescore}
           disabled={loading}
-          className="bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-white text-xs px-3 py-1.5 rounded-lg"
+          className="bg-[var(--surface-raised)] hover:bg-[rgba(255,255,255,0.08)] disabled:opacity-50 text-[var(--text-secondary)] text-xs px-3 py-1.5 rounded-lg transition-colors"
         >
           {loading ? 'Scoring...' : 'Re-score'}
         </button>
@@ -525,8 +496,8 @@ function ATSPanel({ masterCvId, applicationId, initialGeneral, initialJob }) {
 
       {loading && !general && !job ? (
         <div className="space-y-2">
-          <div className="h-24 bg-slate-800 rounded animate-pulse" />
-          <div className="h-24 bg-slate-800 rounded animate-pulse" />
+          <div className="h-24 bg-[var(--surface-raised)] rounded animate-pulse" />
+          <div className="h-24 bg-[var(--surface-raised)] rounded animate-pulse" />
         </div>
       ) : error ? (
         <p className="text-red-400 text-sm">{error}</p>
@@ -537,11 +508,9 @@ function ATSPanel({ masterCvId, applicationId, initialGeneral, initialJob }) {
               <ScoreMeter score={general?.score} label="General CV" />
               {general?.strengths?.length > 0 && (
                 <div>
-                  <h4 className="text-xs uppercase tracking-wide text-slate-500 mb-1">Strengths</h4>
-                  <ul className="list-disc list-inside text-slate-300 text-sm space-y-1">
-                    {general.strengths.map((s, i) => (
-                      <li key={i}>{s}</li>
-                    ))}
+                  <h4 className="text-xs uppercase tracking-wide text-[var(--text-muted)] mb-1">Strengths</h4>
+                  <ul className="list-disc list-inside text-[var(--text-secondary)] text-sm space-y-1">
+                    {general.strengths.map((s, i) => <li key={i}>{s}</li>)}
                   </ul>
                 </div>
               )}
@@ -550,10 +519,10 @@ function ATSPanel({ masterCvId, applicationId, initialGeneral, initialJob }) {
               <ScoreMeter score={job?.score} label="Job Match" />
               {job?.matched_keywords?.length > 0 && (
                 <div>
-                  <h4 className="text-xs uppercase tracking-wide text-slate-500 mb-1">Matched</h4>
+                  <h4 className="text-xs uppercase tracking-wide text-[var(--text-muted)] mb-1">Matched</h4>
                   <div className="flex flex-wrap gap-1">
                     {job.matched_keywords.map((k, i) => (
-                      <span key={i} className="bg-green-900 text-green-300 rounded-full px-2 py-0.5 text-xs">
+                      <span key={i} className="bg-emerald-500/15 text-emerald-400 rounded-full px-2 py-0.5 text-xs">
                         {k}
                       </span>
                     ))}
@@ -562,10 +531,10 @@ function ATSPanel({ masterCvId, applicationId, initialGeneral, initialJob }) {
               )}
               {job?.missing_keywords?.length > 0 && (
                 <div>
-                  <h4 className="text-xs uppercase tracking-wide text-slate-500 mb-1">Missing</h4>
+                  <h4 className="text-xs uppercase tracking-wide text-[var(--text-muted)] mb-1">Missing</h4>
                   <div className="flex flex-wrap gap-1">
                     {job.missing_keywords.map((k, i) => (
-                      <span key={i} className="bg-red-900 text-red-300 rounded-full px-2 py-0.5 text-xs">
+                      <span key={i} className="bg-red-500/15 text-red-400 rounded-full px-2 py-0.5 text-xs">
                         {k}
                       </span>
                     ))}
@@ -576,11 +545,9 @@ function ATSPanel({ masterCvId, applicationId, initialGeneral, initialJob }) {
           </div>
           {allImprovements.length > 0 && (
             <div className="mt-6">
-              <h4 className="text-xs uppercase tracking-wide text-slate-500 mb-2">Improvements</h4>
-              <ul className="list-disc list-inside text-slate-400 text-sm space-y-1">
-                {allImprovements.map((s, i) => (
-                  <li key={i}>{s}</li>
-                ))}
+              <h4 className="text-xs uppercase tracking-wide text-[var(--text-muted)] mb-2">Improvements</h4>
+              <ul className="list-disc list-inside text-[var(--text-secondary)] text-sm space-y-1">
+                {allImprovements.map((s, i) => <li key={i}>{s}</li>)}
               </ul>
             </div>
           )}
@@ -620,14 +587,8 @@ export default function ResultsPage() {
   }, [id])
 
   useEffect(() => {
-    // Always hit the detail endpoint so we get persisted ATS scores + section_config
-    // + master_cv_id, even when navigating from a fresh tailor. The store already has
-    // a rendered tailored result if the user just tailored, so we don't block UI on
-    // the fetch unless we have nothing to show.
     let alive = true
-    if (!hasResult) {
-      setHydrating(true)
-    }
+    if (!hasResult) setHydrating(true)
     setHydrateError('')
     api
       .get(`/api/applications/${id}`)
@@ -649,7 +610,7 @@ export default function ResultsPage() {
             reason: p.relevance_reason,
           })),
         ]
-        const result = {
+        setTailoredResult(d.id, {
           tailored_session_id: d.id,
           job_title: d.job_title,
           company_name: d.company_name,
@@ -658,8 +619,7 @@ export default function ResultsPage() {
           tailored_summary: tcv.tailored_summary,
           scores,
           created_at: d.created_at,
-        }
-        setTailoredResult(d.id, result)
+        })
         setSectionConfig(d.section_config || null)
         setEffectiveMasterCvId(d.master_cv_id)
         if (d.general_ats_score != null) {
@@ -678,39 +638,35 @@ export default function ResultsPage() {
           })
         }
         setInitialCoverLetter(d.cover_letter || null)
-        if (!masterCvId) {
-          setMasterCv(d.master_cv_id, null)
-        }
+        if (!masterCvId) setMasterCv(d.master_cv_id, null)
       })
       .catch((err) => {
         console.error(err)
         if (alive) setHydrateError('Could not load this application')
       })
       .finally(() => alive && setHydrating(false))
-    return () => {
-      alive = false
-    }
+    return () => { alive = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
   if (hydrating) {
     return (
-      <div className="max-w-2xl mx-auto bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center">
-        <p className="text-slate-400">Loading application...</p>
+      <div className="max-w-2xl mx-auto bg-[var(--surface)] border border-[var(--border)] rounded-xl p-8 text-center">
+        <p className="text-[var(--text-secondary)]">Loading application...</p>
       </div>
     )
   }
 
   if (!hasResult) {
     return (
-      <div className="max-w-2xl mx-auto bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center">
-        <h2 className="text-xl font-semibold text-white">Result not found</h2>
-        <p className="text-slate-400 mt-2 text-sm">
+      <div className="max-w-2xl mx-auto bg-[var(--surface)] border border-[var(--border)] rounded-xl p-8 text-center">
+        <h2 className="text-xl font-semibold">Result not found</h2>
+        <p className="text-[var(--text-secondary)] mt-2 text-sm">
           {hydrateError || 'This application could not be loaded.'}
         </p>
         <button
           onClick={() => navigate('/history')}
-          className="mt-4 bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-4 py-2 rounded-lg transition"
+          className="mt-4 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-medium px-4 py-2 rounded-lg transition-colors"
         >
           Go to history
         </button>
@@ -724,9 +680,7 @@ export default function ResultsPage() {
 
   const downloadFile = async (format) => {
     try {
-      const res = await api.get(`/api/download/${id}?format=${format}`, {
-        responseType: 'blob',
-      })
+      const res = await api.get(`/api/download/${id}?format=${format}`, { responseType: 'blob' })
       const disposition = res.headers['content-disposition'] || ''
       const match = disposition.match(/filename="?([^"]+)"?/)
       const filename = match ? match[1] : `cv.${format}`
@@ -756,23 +710,14 @@ export default function ResultsPage() {
   }
 
   const togglePreview = async () => {
-    if (previewOpen) {
-      setPreviewOpen(false)
-      return
-    }
+    if (previewOpen) { setPreviewOpen(false); return }
     setPreviewOpen(true)
     await fetchPreview()
   }
 
   const handleSectionsSaved = async () => {
-    // Always re-fetch after saving so the preview reflects the new section config.
-    // If the preview panel is open, refresh it immediately; if closed, clear the
-    // cache so the next open gets a fresh render.
-    if (previewOpen) {
-      await fetchPreview()
-    } else {
-      setPreviewHtml('')
-    }
+    if (previewOpen) await fetchPreview()
+    else setPreviewHtml('')
   }
 
   const tailorAnother = () => {
@@ -800,16 +745,16 @@ export default function ResultsPage() {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-white">
+        <h1 className="text-4xl font-bold tracking-tight">
           {r.job_title} at {r.company_name}
         </h1>
-        <p className="text-slate-400 mt-1">{formatDate(r.created_at || new Date())}</p>
+        <p className="text-[var(--text-secondary)] mt-1 text-[15px]">{formatDate(r.created_at || new Date())}</p>
       </div>
 
       {r.tailored_summary && (
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-          <h2 className="text-lg font-semibold text-white mb-3">Tailored Summary</h2>
-          <p className="text-slate-300 leading-relaxed">{r.tailored_summary}</p>
+        <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-6">
+          <h2 className="text-lg font-semibold mb-3">Tailored Summary</h2>
+          <p className="text-[var(--text-secondary)] leading-relaxed">{r.tailored_summary}</p>
         </div>
       )}
 
@@ -821,10 +766,10 @@ export default function ResultsPage() {
       />
 
       {r.job_description && (
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-          <h2 className="text-lg font-semibold text-white mb-3">Job Description</h2>
+        <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-6">
+          <h2 className="text-lg font-semibold mb-3">Job Description</h2>
           <div
-            className={`text-slate-400 text-sm leading-relaxed whitespace-pre-wrap ${
+            className={`text-[var(--text-secondary)] text-sm leading-relaxed whitespace-pre-wrap ${
               showFullJd ? '' : 'line-clamp-6'
             }`}
           >
@@ -832,32 +777,30 @@ export default function ResultsPage() {
           </div>
           <button
             onClick={() => setShowFullJd((v) => !v)}
-            className="mt-3 text-indigo-400 hover:text-indigo-300 text-sm"
+            className="mt-3 text-[var(--accent)] hover:opacity-80 text-sm transition-opacity"
           >
             {showFullJd ? 'Show less' : 'Show more'}
           </button>
         </div>
       )}
 
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6">
-        <h2 className="text-lg font-semibold text-white">Relevance Scores</h2>
+      <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-6 space-y-6">
+        <h2 className="text-lg font-semibold">Relevance Scores</h2>
 
         {experiences.length > 0 && (
           <div>
-            <h3 className="text-sm uppercase tracking-wide text-slate-500 mb-3">Experience</h3>
+            <h3 className="text-xs uppercase tracking-wide text-[var(--text-muted)] mb-3">Experience</h3>
             <ul className="space-y-3">
               {experiences.map((e, i) => (
                 <li key={i} className="flex items-start gap-3">
                   <span
-                    className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold ${scoreClasses(
-                      e.score,
-                    )}`}
+                    className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold shrink-0 ${scoreClasses(e.score)}`}
                   >
                     {e.score}
                   </span>
                   <div>
-                    <p className="text-white font-medium">{e.name}</p>
-                    <p className="text-slate-400 text-sm">{e.reason}</p>
+                    <p className="font-medium">{e.name}</p>
+                    <p className="text-[var(--text-secondary)] text-sm">{e.reason}</p>
                   </div>
                 </li>
               ))}
@@ -867,20 +810,18 @@ export default function ResultsPage() {
 
         {projects.length > 0 && (
           <div>
-            <h3 className="text-sm uppercase tracking-wide text-slate-500 mb-3">Projects</h3>
+            <h3 className="text-xs uppercase tracking-wide text-[var(--text-muted)] mb-3">Projects</h3>
             <ul className="space-y-3">
               {projects.map((p, i) => (
                 <li key={i} className="flex items-start gap-3">
                   <span
-                    className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold ${scoreClasses(
-                      p.score,
-                    )}`}
+                    className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold shrink-0 ${scoreClasses(p.score)}`}
                   >
                     {p.score}
                   </span>
                   <div>
-                    <p className="text-white font-medium">{p.name}</p>
-                    <p className="text-slate-400 text-sm">{p.reason}</p>
+                    <p className="font-medium">{p.name}</p>
+                    <p className="text-[var(--text-secondary)] text-sm">{p.reason}</p>
                   </div>
                 </li>
               ))}
@@ -902,38 +843,38 @@ export default function ResultsPage() {
       <div className="flex flex-wrap gap-3">
         <button
           onClick={() => downloadFile('docx')}
-          className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-4 py-2 rounded-lg transition"
+          className="bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-medium px-4 py-2 rounded-lg transition-colors"
         >
           Download DOCX
         </button>
         <button
           onClick={() => downloadFile('pdf')}
-          className="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-4 py-2 rounded-lg transition"
+          className="bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-medium px-4 py-2 rounded-lg transition-colors"
         >
           Download PDF
         </button>
         <button
           onClick={togglePreview}
-          className="bg-slate-800 hover:bg-slate-700 text-white font-medium px-4 py-2 rounded-lg transition"
+          className="bg-[var(--surface)] hover:bg-[var(--surface-raised)] border border-[var(--border)] text-[var(--text-primary)] font-medium px-4 py-2 rounded-lg transition-colors"
         >
           {previewOpen ? 'Hide preview' : 'Preview CV'}
         </button>
         <button
           onClick={tailorAnother}
-          className="bg-slate-800 hover:bg-slate-700 text-white font-medium px-4 py-2 rounded-lg transition"
+          className="bg-[var(--surface)] hover:bg-[var(--surface-raised)] border border-[var(--border)] text-[var(--text-primary)] font-medium px-4 py-2 rounded-lg transition-colors"
         >
           Tailor another job
         </button>
         <button
           onClick={changeJobDetails}
-          className="bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 font-medium px-4 py-2 rounded-lg border border-slate-700 transition"
+          className="bg-[var(--surface)] hover:bg-[var(--surface-raised)] border border-[var(--border)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-medium px-4 py-2 rounded-lg transition-colors"
         >
           Change job details
         </button>
       </div>
 
       {previewOpen && (
-        <div className="bg-white rounded-2xl overflow-hidden">
+        <div className="bg-white rounded-xl overflow-hidden border border-[var(--border)]">
           {previewLoading ? (
             <div className="p-6 text-slate-700">Loading preview...</div>
           ) : (
