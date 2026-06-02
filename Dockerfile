@@ -31,4 +31,9 @@ COPY alembic.ini ./
 
 COPY --from=frontend-builder /app/static ./app/static/
 
+# Drop root: run as an unprivileged user. --create-home gives WeasyPrint/fontconfig
+# a writable HOME for its cache.
+RUN useradd --create-home --uid 1000 appuser
+USER appuser
+
 CMD ["sh", "-c", "alembic upgrade head && uvicorn app.api.main:app --host 0.0.0.0 --port ${PORT:-${API_PORT:-8000}}"]
