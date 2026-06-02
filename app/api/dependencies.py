@@ -15,6 +15,7 @@ async def save_master_cv(
     raw_file: bytes,
     file_type: str,
     user_id: UUID,
+    text_hash: str | None = None,
 ) -> UUID:
     row = MasterCVModel(
         id=uuid4(),
@@ -22,6 +23,7 @@ async def save_master_cv(
         raw_file=raw_file,
         file_type=file_type,
         parsed_data=master_cv.model_dump(),
+        text_hash=text_hash,
         is_active=True,
     )
     db.add(row)
@@ -30,9 +32,12 @@ async def save_master_cv(
     return row.id
 
 
-async def get_master_cv(db: AsyncSession, master_cv_id: UUID) -> MasterCV:
+async def get_master_cv(db: AsyncSession, master_cv_id: UUID, user_id: UUID) -> MasterCV:
     result = await db.execute(
-        select(MasterCVModel).where(MasterCVModel.id == master_cv_id)
+        select(MasterCVModel).where(
+            MasterCVModel.id == master_cv_id,
+            MasterCVModel.user_id == user_id,
+        )
     )
     row = result.scalar_one_or_none()
     if row is None:
@@ -64,9 +69,12 @@ async def save_application(
     return row.id
 
 
-async def get_application(db: AsyncSession, application_id: UUID) -> TailoredCV:
+async def get_application(db: AsyncSession, application_id: UUID, user_id: UUID) -> TailoredCV:
     result = await db.execute(
-        select(ApplicationModel).where(ApplicationModel.id == application_id)
+        select(ApplicationModel).where(
+            ApplicationModel.id == application_id,
+            ApplicationModel.user_id == user_id,
+        )
     )
     row = result.scalar_one_or_none()
     if row is None:

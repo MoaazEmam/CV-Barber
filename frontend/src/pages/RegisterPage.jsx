@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import api from '../lib/axios'
 import useAppStore from '../store/useAppStore'
+import PasswordInput from '../components/PasswordInput'
 
 export default function RegisterPage() {
   const navigate = useNavigate()
@@ -28,11 +29,10 @@ export default function RegisterPage() {
         { headers: { 'Content-Type': 'application/json' } },
       )
 
-      // Auto login
       const form = new URLSearchParams()
       form.append('username', email)
       form.append('password', password)
-      const loginRes = await api.post('/auth/jwt/login', form, {
+      const loginRes = await api.post('/auth/login', form, {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       })
       const token = loginRes.data.access_token
@@ -45,6 +45,7 @@ export default function RegisterPage() {
       const detail = err.response?.data?.detail
       if (typeof detail === 'string') setError(detail)
       else if (Array.isArray(detail)) setError(detail.map((d) => d.msg).join(', '))
+      else if (detail?.reason) setError(detail.reason)
       else setError('Registration failed.')
     } finally {
       setLoading(false)
@@ -52,70 +53,76 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-[80vh] flex items-center justify-center">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 w-full max-w-md">
-        <h1 className="text-2xl font-bold text-white">Create account</h1>
-        <p className="text-slate-400 text-sm mt-1">Start tailoring your CV</p>
+    <div className="min-h-[80vh] flex items-center justify-center lg:gap-20">
+      {/* Left panel — desktop only */}
+      <div className="hidden lg:flex flex-col justify-center flex-1 max-w-xs">
+        <p className="text-[var(--accent)] text-sm font-medium tracking-wide uppercase mb-3">CV Barber</p>
+        <h2 className="text-[32px] font-bold tracking-tight text-[var(--text-primary)] leading-tight">
+          Your CV, tailored for every job.
+        </h2>
+        <p className="mt-3 text-[var(--text-secondary)] text-[15px]">
+          Upload once. Tailored for every role.
+        </p>
+      </div>
 
-        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-          <div>
-            <label className="block text-sm text-slate-300 mb-1">Email</label>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-slate-300 mb-1">Username</label>
-            <input
-              type="text"
-              required
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-slate-300 mb-1">Password</label>
-            <input
-              type="password"
-              required
+      {/* Right panel — form */}
+      <div className="w-full max-w-md">
+        <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-8">
+          <h1 className="text-2xl font-bold tracking-tight">Create account</h1>
+          <p className="text-[var(--text-secondary)] text-sm mt-1">Start tailoring your CV</p>
+
+          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Email</label>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full bg-[var(--bg)] border border-[rgba(255,255,255,0.10)] text-[var(--text-primary)] rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]/30 focus:border-[#5E6AD2]/60 transition-colors placeholder:text-[var(--text-muted)]"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Username</label>
+              <input
+                type="text"
+                required
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="w-full bg-[var(--bg)] border border-[rgba(255,255,255,0.10)] text-[var(--text-primary)] rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]/30 focus:border-[#5E6AD2]/60 transition-colors placeholder:text-[var(--text-muted)]"
+              />
+            </div>
+            <PasswordInput
+              label="Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              autoComplete="new-password"
             />
-          </div>
-          <div>
-            <label className="block text-sm text-slate-300 mb-1">Confirm Password</label>
-            <input
-              type="password"
-              required
+            <PasswordInput
+              label="Confirm Password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              autoComplete="new-password"
             />
-          </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-medium py-2.5 rounded-lg transition"
-          >
-            {loading ? 'Creating account...' : 'Create account'}
-          </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] disabled:opacity-50 text-white font-medium h-11 rounded-lg transition-colors mt-1"
+            >
+              {loading ? 'Creating account...' : 'Create account'}
+            </button>
 
-          {error && <p className="text-red-400 text-sm">{error}</p>}
-        </form>
+            {error && <p className="text-red-400 text-sm">{error}</p>}
+          </form>
 
-        <p className="text-sm text-slate-400 mt-6 text-center">
-          Already have an account?{' '}
-          <Link to="/login" className="text-indigo-400 hover:text-indigo-300">
-            Sign in
-          </Link>
-        </p>
+          <p className="text-sm text-[var(--text-muted)] mt-6 text-center">
+            Already have an account?{' '}
+            <Link to="/login" className="text-[var(--accent)] hover:opacity-80 transition-opacity">
+              Sign in
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   )

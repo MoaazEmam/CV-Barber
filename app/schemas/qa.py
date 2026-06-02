@@ -1,8 +1,18 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
 
 class QARequest(BaseModel):
-    questions: list[str]
+    questions: list[str] = Field(..., min_length=1, max_length=10)
+
+    @field_validator("questions")
+    @classmethod
+    def _check_question_length(cls, v: list[str]) -> list[str]:
+        # Generous upper bound — real questions (even long essay-style prompts)
+        # are well under this; it only blocks abusive multi-KB payloads.
+        for q in v:
+            if len(q) > 5000:
+                raise ValueError("Each question must be at most 5000 characters.")
+        return v
 
 
 class QAItem(BaseModel):

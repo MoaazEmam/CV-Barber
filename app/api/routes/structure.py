@@ -100,7 +100,7 @@ async def get_cv_structure(
         raise HTTPException(status_code=403, detail="Forbidden")
 
     try:
-        master_cv = await get_master_cv(db, master_cv_id)
+        master_cv = await get_master_cv(db, master_cv_id, current_user.id)
     except KeyError:
         raise HTTPException(status_code=404, detail="CV not found")
 

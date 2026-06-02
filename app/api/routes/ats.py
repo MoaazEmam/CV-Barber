@@ -1,10 +1,11 @@
 from uuid import UUID
 
 import structlog
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.rate_limit import LLM_USER_LIMITS, limiter
 from app.auth.config import current_active_user
 from app.db.base import AsyncSessionLocal
 from app.db.dependencies import get_db
@@ -54,7 +55,9 @@ async def _persist_job_score(application_id: UUID, score: int, matched: list[str
 
 
 @router.post("/cv/{master_cv_id}/ats/general", response_model=GeneralATSScore)
+@limiter.limit(LLM_USER_LIMITS)
 async def score_general_ats(
+    request: Request,
     master_cv_id: UUID,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
@@ -94,7 +97,9 @@ async def score_general_ats(
 
 
 @router.post("/applications/{application_id}/ats/job", response_model=JobATSScore)
+@limiter.limit(LLM_USER_LIMITS)
 async def score_job_ats(
+    request: Request,
     application_id: UUID,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),

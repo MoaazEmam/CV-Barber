@@ -5,10 +5,13 @@ services:
     restart: unless-stopped
     environment:
       - POSTGRES_USER=cvbarber
-      - POSTGRES_PASSWORD=cvbarber
+      # Override via POSTGRES_PASSWORD in the environment for non-dev deploys.
+      # NOTE: only applied when the data volume is first initialized.
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-cvbarber}
       - POSTGRES_DB=cvbarber
     ports:
-      - "5433:5432"
+      # Bind to loopback so Postgres is not reachable from other hosts.
+      - "127.0.0.1:5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -30,7 +33,7 @@ services:
     environment:
       - API_PORT=8000
       # Override .env so the app reaches the compose-internal postgres service
-      - DATABASE_URL=postgresql+asyncpg://cvbarber:cvbarber@postgres:5432/cvbarber
+      - DATABASE_URL=postgresql+asyncpg://cvbarber:${POSTGRES_PASSWORD:-cvbarber}@postgres:5432/cvbarber
     depends_on:
       postgres:
         condition: service_healthy

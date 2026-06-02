@@ -1,5 +1,7 @@
 import json
 
+import structlog
+
 from app.llm.base_client import BaseLLMClient
 from app.llm.client_factory import LLMClientFactory
 from app.llm.exceptions import (
@@ -12,6 +14,12 @@ from app.llm.retry import async_retry_llm
 from app.schemas.config import TailoringConfig
 from app.schemas.master_cv import MasterCV
 from app.schemas.tailored_cv import TailoredCV
+
+log = structlog.get_logger()
+
+# Safety net only — ~30k chars is ~10 pages; real job descriptions are far
+# shorter, so this should never clip a genuine JD. Truncation is logged.
+MAX_JD_CHARS = 30_000
 
 
 class CVScorer:
@@ -33,10 +41,16 @@ class CVScorer:
             top_n_projects=config.top_n_projects,
         )
 
+        if len(job_description) > MAX_JD_CHARS:
+            log.warning(
+                "job_description_truncated",
+                original_chars=len(job_description),
+                kept_chars=MAX_JD_CHARS,
+            )
         user_prompt = self._user_template.format(
             job_title=config.job_title,
             company_name=config.company_name,
-            job_description=job_description,
+            job_description=job_description[:MAX_JD_CHARS],
             master_cv_json=master_cv.model_dump_json(indent=2),
         )
 

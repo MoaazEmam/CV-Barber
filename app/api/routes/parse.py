@@ -1,12 +1,14 @@
+import hashlib
 from uuid import UUID
 
 import structlog
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Request, UploadFile
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import save_master_cv
 from app.api.models import ParseResponse
+from app.api.rate_limit import LLM_USER_LIMITS, limiter
 from app.auth.config import current_active_user
 from app.db.base import AsyncSessionLocal
 from app.db.dependencies import get_db
@@ -24,8 +26,13 @@ extractor = TextExtractor()
 log = structlog.get_logger()
 
 
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB — generous for image-heavy CVs
+
+
 @router.post("/parse", response_model=ParseResponse)
+@limiter.limit(LLM_USER_LIMITS)
 async def parse_cv(
+    request: Request,
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
@@ -37,13 +44,44 @@ async def parse_cv(
             status_code=400, detail="Unsupported file type. Upload a PDF or DOCX."
         )
 
+    # Read at most MAX_UPLOAD_BYTES + 1 so an oversized file is rejected without
+    # pulling gigabytes into memory.
+    file_bytes = await file.read(MAX_UPLOAD_BYTES + 1)
+    if len(file_bytes) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=413, detail="File too large. Maximum upload size is 10 MB."
+        )
+
     try:
-        file_bytes = await file.read()
         log.info("cv_extraction_started", filename=file.filename, size=len(file_bytes))
         raw_text = extractor.extract_cv_text_from_bytes(file_bytes, file.filename)
         log.info("cv_extraction_completed", chars=len(raw_text))
     except Exception as e:
-        raise HTTPException(status_code=422, detail=f"Could not extract text: {e}")
+        log.warning("cv_extraction_failed", filename=file.filename, error=str(e))
+        raise HTTPException(
+            status_code=422, detail="Could not extract text from the file."
+        )
+
+    normalized = " ".join(raw_text.split())
+    text_hash = hashlib.sha256(normalized.encode()).hexdigest()
+
+    existing = await db.scalar(
+        select(MasterCVModel).where(
+            MasterCVModel.user_id == current_user.id,
+            MasterCVModel.text_hash == text_hash,
+        )
+    )
+    if existing:
+        data = existing.parsed_data or {}
+        log.info("duplicate_cv_detected", user_id=str(current_user.id), master_cv_id=str(existing.id))
+        return ParseResponse(
+            session_id=str(existing.id),
+            full_name=data.get("full_name", ""),
+            experience_count=len(data.get("experience", [])),
+            project_count=len(data.get("projects", [])),
+            skills_count=len(data.get("skills", [])),
+            message="Existing CV matched — no re-upload needed.",
+        )
 
     try:
         parser = CVParser()
@@ -69,7 +107,7 @@ async def parse_cv(
 
     file_type = "pdf" if file.filename.lower().endswith(".pdf") else "docx"
     session_id: UUID = await save_master_cv(
-        db, master_cv, file_bytes, file_type, user_id=current_user.id
+        db, master_cv, file_bytes, file_type, user_id=current_user.id, text_hash=text_hash
     )
 
     # Auto-trigger general ATS score with a fresh DB session.

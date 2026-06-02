@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     api_host: str = Field(default="0.0.0.0")
     api_port: int = Field(default=8000)
     env: str = Field(default="development")
+    allowed_hosts: str = Field(default="*")  # comma-separated; "*" disables host check
     database_url: str = Field(...)
     secret_key: str = Field(...)
     model_config = SettingsConfigDict(env_file=ENV_FILE_PATH, case_sensitive=False)
