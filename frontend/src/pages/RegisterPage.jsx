@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import api from '../lib/axios'
 import useAppStore from '../store/useAppStore'
+import PasswordInput from '../components/PasswordInput'
 
 export default function RegisterPage() {
   const navigate = useNavigate()
@@ -31,7 +32,7 @@ export default function RegisterPage() {
       const form = new URLSearchParams()
       form.append('username', email)
       form.append('password', password)
-      const loginRes = await api.post('/auth/jwt/login', form, {
+      const loginRes = await api.post('/auth/login', form, {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       })
       const token = loginRes.data.access_token
@@ -44,6 +45,7 @@ export default function RegisterPage() {
       const detail = err.response?.data?.detail
       if (typeof detail === 'string') setError(detail)
       else if (Array.isArray(detail)) setError(detail.map((d) => d.msg).join(', '))
+      else if (detail?.reason) setError(detail.reason)
       else setError('Registration failed.')
     } finally {
       setLoading(false)
@@ -90,26 +92,18 @@ export default function RegisterPage() {
                 className="w-full bg-[var(--bg)] border border-[rgba(255,255,255,0.10)] text-[var(--text-primary)] rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]/30 focus:border-[#5E6AD2]/60 transition-colors placeholder:text-[var(--text-muted)]"
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Password</label>
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-[var(--bg)] border border-[rgba(255,255,255,0.10)] text-[var(--text-primary)] rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]/30 focus:border-[#5E6AD2]/60 transition-colors placeholder:text-[var(--text-muted)]"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Confirm Password</label>
-              <input
-                type="password"
-                required
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full bg-[var(--bg)] border border-[rgba(255,255,255,0.10)] text-[var(--text-primary)] rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]/30 focus:border-[#5E6AD2]/60 transition-colors placeholder:text-[var(--text-muted)]"
-              />
-            </div>
+            <PasswordInput
+              label="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="new-password"
+            />
+            <PasswordInput
+              label="Confirm Password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              autoComplete="new-password"
+            />
 
             <button
               type="submit"
