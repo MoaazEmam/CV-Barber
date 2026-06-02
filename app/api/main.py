@@ -5,10 +5,14 @@ import structlog
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
-from app.api.routes import ats, cover_letter, history, master_cvs, parse, preview, qa, structure, tailor
+from app.api.rate_limit import AuthRateLimitMiddleware, limiter
+from app.api.routes import auth_refresh, ats, cover_letter, history, master_cvs, parse, preview, qa, structure, tailor
 from app.auth.config import auth_backend, fastapi_users
 from app.auth.schemas import UserCreate, UserRead, UserUpdate
 from app.config import settings
@@ -29,14 +33,48 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         return response
 
 
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("Referrer-Policy", "no-referrer")
+        response.headers.setdefault(
+            "Content-Security-Policy",
+            "default-src 'self'; img-src 'self' data:; "
+            "style-src 'self' 'unsafe-inline'; script-src 'self'; "
+            "frame-src 'self'; object-src 'none'; base-uri 'self'",
+        )
+        # Only assert HSTS when actually served over HTTPS.
+        if request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https":
+            response.headers.setdefault(
+                "Strict-Transport-Security", "max-age=31536000; includeSubDomains"
+            )
+        return response
+
+
 def create_app() -> FastAPI:
+    is_prod = settings.env == "production"
     app = FastAPI(
         title="CV Tailor",
         description="Tailor your CV to any job description in seconds.",
         version="1.0.0",
+        docs_url=None if is_prod else "/docs",
+        redoc_url=None if is_prod else "/redoc",
+        openapi_url=None if is_prod else "/openapi.json",
     )
 
+    # Rate limiting: SlowAPI for per-user LLM limits, custom middleware for auth.
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    app.add_middleware(AuthRateLimitMiddleware)
+
+    app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(RequestIDMiddleware)
+
+    allowed = [h.strip() for h in settings.allowed_hosts.split(",") if h.strip()]
+    if allowed and allowed != ["*"]:
+        app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed)
 
     # Auth routes
     app.include_router(
@@ -54,6 +92,8 @@ def create_app() -> FastAPI:
         prefix="/users",
         tags=["users"],
     )
+    # Refresh-token endpoints (/auth/login, /auth/refresh, /auth/logout).
+    app.include_router(auth_refresh.router, tags=["auth"])
 
     # API routes
     app.include_router(parse.router, prefix="/api")

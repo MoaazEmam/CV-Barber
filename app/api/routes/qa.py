@@ -1,7 +1,7 @@
 from uuid import UUID
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,6 +13,7 @@ from app.llm.exceptions import (
     LLMRateLimitError,
     LLMValidationError,
 )
+from app.api.rate_limit import LLM_USER_LIMITS, limiter
 from app.llm.qa import CVQAResponder
 from app.schemas.qa import QAItem, QARequest, QAResponse
 from app.schemas.tailored_cv import TailoredCV
@@ -22,13 +23,15 @@ logger = structlog.get_logger()
 
 
 @router.post("/applications/{application_id}/qa", response_model=QAResponse)
+@limiter.limit(LLM_USER_LIMITS)
 async def answer_questions(
+    request: Request,
     application_id: UUID,
-    request: QARequest,
+    payload: QARequest,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(current_active_user),
 ):
-    if not request.questions or len(request.questions) > 10:
+    if not payload.questions or len(payload.questions) > 10:
         raise HTTPException(status_code=422, detail="Provide between 1 and 10 questions")
 
     result = await db.execute(
@@ -43,7 +46,7 @@ async def answer_questions(
     tailored_cv = TailoredCV.model_validate(application.tailored_cv_data)
     responder = CVQAResponder()
     try:
-        qa_result = await responder.answer(tailored_cv, request.questions)
+        qa_result = await responder.answer(tailored_cv, payload.questions)
     except LLMAllKeysExhaustedError:
         raise HTTPException(
             status_code=503,

@@ -22,10 +22,26 @@ async def get_user_db(session: AsyncSession = Depends(get_db)):
 bearer_transport = BearerTransport(tokenUrl="auth/jwt/login")
 
 
+ACCESS_TOKEN_AUDIENCE = "fastapi-users:auth"
+REFRESH_TOKEN_AUDIENCE = "cvbarber:refresh"
+REFRESH_TOKEN_LIFETIME = 60 * 60 * 24 * 14  # 14 days
+
+
 def get_jwt_strategy() -> JWTStrategy:
     return JWTStrategy(
         secret=settings.secret_key,
         lifetime_seconds=3600,
+        token_audience=[ACCESS_TOKEN_AUDIENCE],
+    )
+
+
+def get_refresh_strategy() -> JWTStrategy:
+    # Distinct audience so an access token can never be used as a refresh token
+    # (and vice versa), even though both are signed with the same secret.
+    return JWTStrategy(
+        secret=settings.secret_key,
+        lifetime_seconds=REFRESH_TOKEN_LIFETIME,
+        token_audience=[REFRESH_TOKEN_AUDIENCE],
     )
 
 

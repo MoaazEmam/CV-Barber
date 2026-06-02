@@ -2,12 +2,13 @@ import hashlib
 from uuid import UUID
 
 import structlog
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Request, UploadFile
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import save_master_cv
 from app.api.models import ParseResponse
+from app.api.rate_limit import LLM_USER_LIMITS, limiter
 from app.auth.config import current_active_user
 from app.db.base import AsyncSessionLocal
 from app.db.dependencies import get_db
@@ -25,8 +26,13 @@ extractor = TextExtractor()
 log = structlog.get_logger()
 
 
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB — generous for image-heavy CVs
+
+
 @router.post("/parse", response_model=ParseResponse)
+@limiter.limit(LLM_USER_LIMITS)
 async def parse_cv(
+    request: Request,
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
@@ -38,13 +44,23 @@ async def parse_cv(
             status_code=400, detail="Unsupported file type. Upload a PDF or DOCX."
         )
 
+    # Read at most MAX_UPLOAD_BYTES + 1 so an oversized file is rejected without
+    # pulling gigabytes into memory.
+    file_bytes = await file.read(MAX_UPLOAD_BYTES + 1)
+    if len(file_bytes) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=413, detail="File too large. Maximum upload size is 10 MB."
+        )
+
     try:
-        file_bytes = await file.read()
         log.info("cv_extraction_started", filename=file.filename, size=len(file_bytes))
         raw_text = extractor.extract_cv_text_from_bytes(file_bytes, file.filename)
         log.info("cv_extraction_completed", chars=len(raw_text))
     except Exception as e:
-        raise HTTPException(status_code=422, detail=f"Could not extract text: {e}")
+        log.warning("cv_extraction_failed", filename=file.filename, error=str(e))
+        raise HTTPException(
+            status_code=422, detail="Could not extract text from the file."
+        )
 
     normalized = " ".join(raw_text.split())
     text_hash = hashlib.sha256(normalized.encode()).hexdigest()

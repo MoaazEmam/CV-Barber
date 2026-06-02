@@ -1,14 +1,15 @@
 from uuid import UUID
 
 import structlog
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from sqlalchemy import select
 
-from app.api.dependencies import get_application, get_master_cv, save_application
+from app.api.dependencies import get_master_cv, save_application
 from app.api.models import SectionConfigUpdate, TailorRequest, TailorResponse
+from app.api.rate_limit import LLM_USER_LIMITS, limiter
 from app.db.models import ApplicationModel
 from app.auth.config import current_active_user
 from app.config import Settings, settings as default_settings
@@ -29,40 +30,42 @@ log = structlog.get_logger()
 
 
 @router.post("/tailor", response_model=TailorResponse)
+@limiter.limit(LLM_USER_LIMITS)
 async def tailor_cv(
-    request: TailorRequest,
+    request: Request,
+    payload: TailorRequest,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(current_active_user),
 ):
     try:
-        master_cv_id = UUID(request.session_id)
+        master_cv_id = UUID(payload.session_id)
     except ValueError:
         raise HTTPException(status_code=404, detail="Session not found. Please upload your CV again.")
 
     try:
-        master_cv = await get_master_cv(db, master_cv_id)
+        master_cv = await get_master_cv(db, master_cv_id, current_user.id)
     except KeyError:
         raise HTTPException(
             status_code=404, detail="Session not found. Please upload your CV again."
         )
 
     config = TailoringConfig(
-        job_title=request.job_title,
-        company_name=request.company_name,
-        top_n_experience=request.top_n_experience,
-        top_n_projects=request.top_n_projects,
+        job_title=payload.job_title,
+        company_name=payload.company_name,
+        top_n_experience=payload.top_n_experience,
+        top_n_projects=payload.top_n_projects,
     )
 
     try:
         scorer = CVScorer()
         log.info(
             "scoring_started",
-            job_title=request.job_title,
-            company=request.company_name,
+            job_title=payload.job_title,
+            company=payload.company_name,
             master_cv_id=str(master_cv_id),
         )
-        tailored_cv = await scorer.score(master_cv, request.job_description, config)
+        tailored_cv = await scorer.score(master_cv, payload.job_description, config)
         log.info(
             "scoring_completed",
             experience=len(tailored_cv.experience),
@@ -85,9 +88,9 @@ async def tailor_cv(
         db,
         tailored_cv,
         master_cv_id,
-        request.job_title,
-        request.company_name,
-        request.job_description,
+        payload.job_title,
+        payload.company_name,
+        payload.job_description,
         user_id=current_user.id,
     )
     log.info("application_saved", application_id=str(tailored_id))
@@ -120,7 +123,7 @@ async def tailor_cv(
             await session.commit()
 
     background_tasks.add_task(
-        _run_job_ats, tailored_id, tailored_cv.model_dump(), request.job_description
+        _run_job_ats, tailored_id, tailored_cv.model_dump(), payload.job_description
     )
 
     scores = [
@@ -142,7 +145,7 @@ async def tailor_cv(
     ]
 
     return TailorResponse(
-        session_id=request.session_id,
+        session_id=payload.session_id,
         tailored_session_id=str(tailored_id),
         full_name=tailored_cv.full_name,
         company_name=tailored_cv.company_name,

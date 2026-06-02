@@ -2,11 +2,13 @@ from io import BytesIO
 from uuid import UUID
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
+from markupsafe import escape
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.rate_limit import LLM_USER_LIMITS, limiter
 from app.auth.config import current_active_user
 from app.db.dependencies import get_db
 from app.db.models import ApplicationModel, User
@@ -24,7 +26,9 @@ logger = structlog.get_logger()
 
 
 @router.post("/applications/{application_id}/cover-letter", response_model=CoverLetterResponse)
+@limiter.limit(LLM_USER_LIMITS)
 async def generate_cover_letter(
+    request: Request,
     application_id: UUID,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(current_active_user),
@@ -124,7 +128,7 @@ async def download_cover_letter(
     from weasyprint import HTML
 
     paragraphs = [p.strip() for p in letter_text.split("\n\n") if p.strip()]
-    para_html = "".join(f"<p>{p}</p>" for p in paragraphs)
+    para_html = "".join(f"<p>{escape(p)}</p>" for p in paragraphs)
     html_content = f"""<!DOCTYPE html>
 <html>
 <head>
@@ -135,7 +139,7 @@ async def download_cover_letter(
   </style>
 </head>
 <body>
-  <h1>{full_name} — Cover Letter</h1>
+  <h1>{escape(full_name)} — Cover Letter</h1>
   {para_html}
 </body>
 </html>"""
