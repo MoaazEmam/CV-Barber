@@ -55,15 +55,21 @@ export default function TailorPage() {
     }
   }
 
+  const inputClass =
+    'w-full bg-[var(--bg)] border border-[rgba(255,255,255,0.10)] text-[var(--text-primary)] rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]/30 focus:border-[#5E6AD2]/60 transition-colors placeholder:text-[var(--text-muted)]'
+  const labelClass = 'block text-sm font-medium text-[var(--text-secondary)] mb-1.5'
+
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-white">Tailor your CV</h1>
+        <h1 className="text-4xl font-bold tracking-tight">Describe the role</h1>
         {masterCvMeta && (
-          <p className="text-slate-400 mt-1">Tailoring for {masterCvMeta.full_name}</p>
+          <p className="text-[var(--text-secondary)] mt-1 text-[15px]">
+            Tailoring for {masterCvMeta.full_name}
+          </p>
         )}
         {prefill && (
-          <p className="text-indigo-400 text-sm mt-1">
+          <p className="text-[var(--accent)] text-sm mt-1">
             Pre-filled from a previous application — update the details and re-tailor.
           </p>
         )}
@@ -71,63 +77,63 @@ export default function TailorPage() {
 
       <form
         onSubmit={handleSubmit}
-        className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4"
+        className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-6 space-y-4"
       >
         <div>
-          <label className="block text-sm text-slate-300 mb-1">Job Title</label>
+          <label className={labelClass}>Job Title</label>
           <input
             type="text"
             required
             value={jobTitle}
             onChange={(e) => setJobTitle(e.target.value)}
-            className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className={inputClass}
           />
         </div>
 
         <div>
-          <label className="block text-sm text-slate-300 mb-1">Company Name</label>
+          <label className={labelClass}>Company Name</label>
           <input
             type="text"
             required
             value={companyName}
             onChange={(e) => setCompanyName(e.target.value)}
-            className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className={inputClass}
           />
         </div>
 
         <div>
-          <label className="block text-sm text-slate-300 mb-1">Job Description</label>
+          <label className={labelClass}>Job Description</label>
           <textarea
             required
             rows={8}
             placeholder="Paste the full job description here"
             value={jobDescription}
             onChange={(e) => setJobDescription(e.target.value)}
-            className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className={inputClass}
           />
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm text-slate-300 mb-1">Max Experience Entries</label>
+            <label className={labelClass}>Max Experience Entries</label>
             <input
               type="number"
               min={1}
               max={10}
               value={topNExperience}
               onChange={(e) => setTopNExperience(parseInt(e.target.value || '1', 10))}
-              className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className={inputClass}
             />
           </div>
           <div>
-            <label className="block text-sm text-slate-300 mb-1">Max Projects</label>
+            <label className={labelClass}>Max Projects</label>
             <input
               type="number"
               min={1}
               max={10}
               value={topNProjects}
               onChange={(e) => setTopNProjects(parseInt(e.target.value || '1', 10))}
-              className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className={inputClass}
             />
           </div>
         </div>
@@ -135,7 +141,7 @@ export default function TailorPage() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-medium py-2.5 rounded-lg transition"
+          className="w-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] disabled:opacity-50 text-white font-medium h-11 rounded-lg transition-colors"
         >
           {loading ? 'Tailoring...' : 'Generate tailored CV'}
         </button>
