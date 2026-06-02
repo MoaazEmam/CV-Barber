@@ -1,3 +1,4 @@
+import hashlib
 from uuid import UUID
 
 import structlog
@@ -45,6 +46,27 @@ async def parse_cv(
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"Could not extract text: {e}")
 
+    normalized = " ".join(raw_text.split())
+    text_hash = hashlib.sha256(normalized.encode()).hexdigest()
+
+    existing = await db.scalar(
+        select(MasterCVModel).where(
+            MasterCVModel.user_id == current_user.id,
+            MasterCVModel.text_hash == text_hash,
+        )
+    )
+    if existing:
+        data = existing.parsed_data or {}
+        log.info("duplicate_cv_detected", user_id=str(current_user.id), master_cv_id=str(existing.id))
+        return ParseResponse(
+            session_id=str(existing.id),
+            full_name=data.get("full_name", ""),
+            experience_count=len(data.get("experience", [])),
+            project_count=len(data.get("projects", [])),
+            skills_count=len(data.get("skills", [])),
+            message="Existing CV matched — no re-upload needed.",
+        )
+
     try:
         parser = CVParser()
         log.info("llm_parse_started")
@@ -69,7 +91,7 @@ async def parse_cv(
 
     file_type = "pdf" if file.filename.lower().endswith(".pdf") else "docx"
     session_id: UUID = await save_master_cv(
-        db, master_cv, file_bytes, file_type, user_id=current_user.id
+        db, master_cv, file_bytes, file_type, user_id=current_user.id, text_hash=text_hash
     )
 
     # Auto-trigger general ATS score with a fresh DB session.

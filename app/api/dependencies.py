@@ -15,6 +15,7 @@ async def save_master_cv(
     raw_file: bytes,
     file_type: str,
     user_id: UUID,
+    text_hash: str | None = None,
 ) -> UUID:
     row = MasterCVModel(
         id=uuid4(),
@@ -22,6 +23,7 @@ async def save_master_cv(
         raw_file=raw_file,
         file_type=file_type,
         parsed_data=master_cv.model_dump(),
+        text_hash=text_hash,
         is_active=True,
     )
     db.add(row)

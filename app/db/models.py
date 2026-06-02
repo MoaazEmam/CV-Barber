@@ -33,6 +33,7 @@ class MasterCVModel(Base):
     raw_file: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     file_type: Mapped[str] = mapped_column(String, nullable=False)
     parsed_data: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    text_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     general_ats_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
     ats_improvement_points: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
