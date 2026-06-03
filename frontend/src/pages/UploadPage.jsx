@@ -82,6 +82,7 @@ export default function UploadPage() {
   const [file, setFile] = useState(null)
   const [dragOver, setDragOver] = useState(false)
   const [error, setError] = useState('')
+  const [warnings, setWarnings] = useState([])
   const [loading, setLoading] = useState(false)
 
   const pickFile = (f) => {
@@ -92,6 +93,7 @@ export default function UploadPage() {
       return
     }
     setError('')
+    setWarnings([])
     setFile(f)
   }
 
@@ -105,6 +107,7 @@ export default function UploadPage() {
     if (!file) return
     setLoading(true)
     setError('')
+    setWarnings([])
     try {
       const form = new FormData()
       form.append('file', file)
@@ -116,6 +119,12 @@ export default function UploadPage() {
         skills_count: res.data.skills_count,
       }
       setMasterCv(res.data.session_id, meta)
+      if (res.data.warnings?.length) {
+        // Parsed, but extraction looked incomplete — let the user see why before
+        // proceeding instead of silently navigating on.
+        setWarnings(res.data.warnings)
+        return
+      }
       navigate('/tailor')
     } catch (err) {
       const detail = err.response?.data?.detail
@@ -223,6 +232,25 @@ export default function UploadPage() {
       </button>
 
       {error && <p className="text-red-400 text-sm">{error}</p>}
+
+      {warnings.length > 0 && (
+        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 space-y-2">
+          <p className="text-amber-300 text-sm font-medium">
+            We parsed your CV, but a few things looked off:
+          </p>
+          <ul className="list-disc list-inside text-amber-200/90 text-sm space-y-1">
+            {warnings.map((w, i) => (
+              <li key={i}>{w}</li>
+            ))}
+          </ul>
+          <button
+            onClick={() => navigate('/tailor')}
+            className="mt-1 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+          >
+            Continue anyway →
+          </button>
+        </div>
+      )}
 
       <PreviousCVsSection onSelect={handleSelectExisting} />
     </div>

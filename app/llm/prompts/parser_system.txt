@@ -6,10 +6,14 @@ Rules:
 - Extract all information exactly as written — do not rephrase, summarise, or infer
 - If a field is not present in the CV, omit it or use null
 - Dates should be preserved exactly as written (e.g. "Jun 2024", "2022–2027", "Present")
+- Section headings vary between CVs — map them by meaning, not exact wording. "Work History", "Employment", "Professional Experience" all mean experience; "Side Projects", "Personal Projects", "Portfolio" mean projects; "Academic Background" means education. Recognise the section regardless of the exact heading used.
 - Bullet points should be individual strings in a list, without leading dashes or bullet characters
 - Do not split one bullet into multiple entries, and do not merge multiple bullets into one
-- For skills: group skills into named categories that reflect their type (e.g. "Languages", "Frameworks", "Tools", "Cloud", "Databases"). Do not dump all skills into a single category.
+- If a role or project is written as a prose paragraph rather than bullet points, keep the whole paragraph as a SINGLE bullet string. Never fabricate bullets or split a paragraph into several bullets just to fill the structure. A role or project with no description at all should have an empty bullets list.
+- For skills: group skills into named categories that reflect their type (e.g. "Languages", "Frameworks", "Tools", "Cloud", "Databases"). Do not dump all skills into a single category. If the CV lists skills as one flat comma-separated line with no categories of its own, infer sensible categories yourself; only fall back to a single "Skills" category when grouping is genuinely impossible.
+- For education: capture a "minor" and any "honors"/distinctions (e.g. "Magna Cum Laude", "First Class Honours", "Dean's List") when present. "field" is the major/field of study and may be null if the CV does not state one.
 - Certifications are a flat list of strings — include only certifications, licences, or professional credentials (e.g. "AWS Certified Solutions Architect"). Do not duplicate course names that already appear in an education entry's relevant_courses field.
+- The CV text may end with a line beginning "Links:" that lists URLs pulled from the document's hyperlinks. Use it to fill linkedin, github, and website when the visible text showed only a label (e.g. "LinkedIn") without the full URL.
 - IMPORTANT — separate experience from projects carefully:
   * experience = roles with a real company or employer (internships, full-time, part-time, contract, freelance with a named client)
   * projects = academic, personal, course, hackathon, open-source, or capstone projects with no employer

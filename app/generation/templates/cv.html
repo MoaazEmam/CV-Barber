@@ -117,7 +117,9 @@
     {{ entry.date_range.start }}{% if entry.date_range.end %}-{{ entry.date_range.end }}{% endif %}
   </div>
 </div>
-<div><em>Major: {{ entry.field }}</em></div>
+{% if entry.field %}<div><em>Major: {{ entry.field }}</em></div>{% endif %}
+{% if entry.minor %}<div><em>Minor: {{ entry.minor }}</em></div>{% endif %}
+{% if entry.honors %}<div><em>{{ entry.honors }}</em></div>{% endif %}
 {% endfor %}
 {% endif %}
 

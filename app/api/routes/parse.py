@@ -28,6 +28,34 @@ log = structlog.get_logger()
 
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB — generous for image-heavy CVs
 
+# A genuine CV extracts to thousands of characters. Below this, extraction
+# (including OCR for scans) effectively failed — fail loudly with a clear message
+# instead of feeding empty text to the LLM and producing a junk CV.
+MIN_CV_TEXT_CHARS = 50
+
+
+def _parse_warnings(
+    full_name: str | None,
+    email: str | None,
+    experience_count: int,
+    project_count: int,
+    skills_count: int,
+) -> list[str]:
+    """Non-blocking notices surfaced to the user when a parse looks incomplete."""
+    warnings: list[str] = []
+    if experience_count == 0 and project_count == 0:
+        warnings.append(
+            "No work experience or projects were detected — the file's layout may "
+            "not have parsed cleanly."
+        )
+    if not full_name or not email:
+        warnings.append(
+            "We couldn't confidently detect your name or email — please check the result."
+        )
+    if skills_count == 0:
+        warnings.append("No skills were detected.")
+    return warnings
+
 
 @router.post("/parse", response_model=ParseResponse)
 @limiter.limit(LLM_USER_LIMITS)
@@ -62,6 +90,18 @@ async def parse_cv(
             status_code=422, detail="Could not extract text from the file."
         )
 
+    if len(raw_text.strip()) < MIN_CV_TEXT_CHARS:
+        log.warning(
+            "cv_text_too_short", filename=file.filename, chars=len(raw_text.strip())
+        )
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "We couldn't read any text from this file — it may be a scanned "
+                "image or empty. Try uploading a text-based PDF or DOCX."
+            ),
+        )
+
     normalized = " ".join(raw_text.split())
     text_hash = hashlib.sha256(normalized.encode()).hexdigest()
 
@@ -81,6 +121,13 @@ async def parse_cv(
             project_count=len(data.get("projects", [])),
             skills_count=len(data.get("skills", [])),
             message="Existing CV matched — no re-upload needed.",
+            warnings=_parse_warnings(
+                data.get("full_name"),
+                data.get("email"),
+                len(data.get("experience", [])),
+                len(data.get("projects", [])),
+                len(data.get("skills", [])),
+            ),
         )
 
     try:
@@ -146,4 +193,11 @@ async def parse_cv(
         skills_count=len(master_cv.skills),
         message=f"CV parsed successfully. Found {len(master_cv.experience)} experience "
         f"entries and {len(master_cv.projects)} projects.",
+        warnings=_parse_warnings(
+            master_cv.full_name,
+            master_cv.email,
+            len(master_cv.experience),
+            len(master_cv.projects),
+            len(master_cv.skills),
+        ),
     )

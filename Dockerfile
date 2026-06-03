@@ -18,12 +18,24 @@ RUN apt-get update && apt-get install -y \
     libcairo2 \
     libgtk-3-0 \
     shared-mime-info \
+    tesseract-ocr \
+    tesseract-ocr-eng \
     && rm -rf /var/lib/apt/lists/*
+
+# Tesseract 5 (Debian trixie, the current python:3.12-slim base) ships its
+# language data here; PyMuPDF's OCR needs TESSDATA_PREFIX to locate it.
+ENV TESSDATA_PREFIX=/usr/share/tesseract-ocr/5/tessdata
 
 RUN pip install poetry
 COPY pyproject.toml poetry.lock ./
+# Resilient install: PyPI file downloads occasionally read-timeout, so use a
+# generous per-request timeout and retry a few times with backoff before failing.
+ENV POETRY_REQUESTS_TIMEOUT=180
 RUN poetry config virtualenvs.create false \
-    && poetry install --no-interaction --no-ansi --no-root
+    && { poetry install --no-interaction --no-ansi --no-root \
+        || { echo "retry 1..."; sleep 10; poetry install --no-interaction --no-ansi --no-root; } \
+        || { echo "retry 2..."; sleep 20; poetry install --no-interaction --no-ansi --no-root; } \
+        || { echo "retry 3..."; sleep 30; poetry install --no-interaction --no-ansi --no-root; }; }
 
 COPY app/ ./app/
 COPY alembic/ ./alembic/

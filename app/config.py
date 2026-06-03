@@ -24,6 +24,12 @@ class Settings(BaseSettings):
     ollama_base_url: str = Field(default="http://localhost:11434")
     ollama_model: str = Field(default="llama3.1")
 
+    # OCR fallback for scanned/image-only PDFs (PyMuPDF + system Tesseract).
+    # Degrades gracefully to a parse warning when Tesseract is not installed.
+    ocr_enabled: bool = Field(default=True)
+    ocr_dpi: int = Field(default=300)
+    tessdata_prefix: str | None = Field(default=None)  # overrides TESSDATA_PREFIX env
+
     output_format: str = Field(default="pdf")
     top_n_projects: int = Field(default=3)
     top_n_experience: int = Field(default=3)
@@ -33,7 +39,11 @@ class Settings(BaseSettings):
     allowed_hosts: str = Field(default="*")  # comma-separated; "*" disables host check
     database_url: str = Field(...)
     secret_key: str = Field(...)
-    model_config = SettingsConfigDict(env_file=ENV_FILE_PATH, case_sensitive=False)
+    # extra="ignore": the .env is shared with other services (e.g. the job-finder's
+    # CRAWLER_URL); unknown keys must not crash this app's settings load.
+    model_config = SettingsConfigDict(
+        env_file=ENV_FILE_PATH, case_sensitive=False, extra="ignore"
+    )
 
     def get_all_groq_keys(self) -> list[str]:
         if self.groq_api_keys:
