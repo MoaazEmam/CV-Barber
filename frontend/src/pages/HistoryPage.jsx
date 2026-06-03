@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../lib/axios'
+import ConfirmDialog from '../components/ConfirmDialog'
 
 function scoreClasses(score) {
   if (score >= 7) return 'bg-emerald-500/15 text-emerald-400'
@@ -39,6 +40,7 @@ export default function HistoryPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [deleting, setDeleting] = useState(null)
+  const [confirmId, setConfirmId] = useState(null)
 
   useEffect(() => {
     let cancelled = false
@@ -58,9 +60,14 @@ export default function HistoryPage() {
     }
   }, [])
 
-  const handleDelete = async (e, appId) => {
+  const handleDeleteClick = (e, appId) => {
     e.stopPropagation()
-    if (!window.confirm('Delete this application? This cannot be undone.')) return
+    setConfirmId(appId)
+  }
+
+  const handleConfirmedDelete = async () => {
+    const appId = confirmId
+    setConfirmId(null)
     setDeleting(appId)
     try {
       await api.delete(`/api/applications/${appId}`)
@@ -144,7 +151,7 @@ export default function HistoryPage() {
                 </div>
               </button>
               <button
-                onClick={(e) => handleDelete(e, app.id)}
+                onClick={(e) => handleDeleteClick(e, app.id)}
                 disabled={deleting === app.id}
                 className="px-4 text-[var(--text-muted)] hover:text-red-400 hover:bg-red-500/10 transition-colors border-l border-[var(--border)] disabled:opacity-40"
                 title="Delete application"
@@ -157,6 +164,14 @@ export default function HistoryPage() {
           ))}
         </ul>
       )}
+
+      <ConfirmDialog
+        open={confirmId !== null}
+        title="Delete application?"
+        message="This will permanently remove this tailored CV and all its Q&A. This cannot be undone."
+        onConfirm={handleConfirmedDelete}
+        onCancel={() => setConfirmId(null)}
+      />
     </div>
   )
 }

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../lib/axios'
 import useAppStore from '../store/useAppStore'
+import ConfirmDialog from '../components/ConfirmDialog'
 
 const ACCEPTED = ['.pdf', '.docx']
 
@@ -25,6 +26,7 @@ function PreviousCVsSection({ onSelect }) {
   const [cvs, setCvs] = useState([])
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState(null)
+  const [confirmCv, setConfirmCv] = useState(null)
   const masterCvId = useAppStore((s) => s.masterCvId)
   const resetCvFlow = useAppStore((s) => s.resetCvFlow)
 
@@ -43,8 +45,9 @@ function PreviousCVsSection({ onSelect }) {
     }
   }, [])
 
-  const handleDelete = async (cv) => {
-    if (!window.confirm(`Delete "${cv.full_name}" and all its tailored applications? This cannot be undone.`)) return
+  const handleConfirmedDelete = async () => {
+    const cv = confirmCv
+    setConfirmCv(null)
     setDeleting(cv.id)
     try {
       await api.delete(`/api/master-cvs/${cv.id}`)
@@ -86,7 +89,7 @@ function PreviousCVsSection({ onSelect }) {
                 Use this CV
               </button>
               <button
-                onClick={() => handleDelete(cv)}
+                onClick={() => setConfirmCv(cv)}
                 disabled={deleting === cv.id}
                 className="text-[var(--text-muted)] hover:text-red-400 p-1.5 rounded-lg hover:bg-red-500/10 transition-colors disabled:opacity-40"
                 title="Delete this CV"
@@ -99,6 +102,14 @@ function PreviousCVsSection({ onSelect }) {
           </div>
         ))}
       </div>
+
+      <ConfirmDialog
+        open={confirmCv !== null}
+        title="Delete CV?"
+        message={confirmCv ? `"${confirmCv.full_name}" and all its tailored applications will be permanently removed.` : ''}
+        onConfirm={handleConfirmedDelete}
+        onCancel={() => setConfirmCv(null)}
+      />
     </div>
   )
 }
