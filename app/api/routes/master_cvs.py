@@ -1,7 +1,10 @@
-from fastapi import APIRouter, Depends
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.dependencies import delete_master_cv
 from app.api.models import MasterCVListItem, MasterCVListResponse
 from app.auth.config import current_active_user
 from app.db.dependencies import get_db
@@ -35,3 +38,15 @@ async def list_master_cvs(
             )
         )
     return MasterCVListResponse(master_cvs=items)
+
+
+@router.delete("/master-cvs/{master_cv_id}", status_code=204)
+async def delete_master_cv_endpoint(
+    master_cv_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(current_active_user),
+):
+    try:
+        await delete_master_cv(db, master_cv_id, current_user.id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Not found")

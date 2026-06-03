@@ -7,7 +7,7 @@ import PasswordInput from '../components/PasswordInput'
 export default function LoginPage() {
   const navigate = useNavigate()
   const setAuth = useAppStore((s) => s.setAuth)
-  const [email, setEmail] = useState('')
+  const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -18,7 +18,7 @@ export default function LoginPage() {
     setLoading(true)
     try {
       const form = new URLSearchParams()
-      form.append('username', email)
+      form.append('username', identifier)
       form.append('password', password)
 
       const loginRes = await api.post('/auth/login', form, {
@@ -61,12 +61,13 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-4">
             <div>
-              <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Email</label>
+              <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Email or username</label>
               <input
-                type="email"
+                type="text"
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="username"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
                 className="w-full bg-[var(--bg)] border border-[rgba(255,255,255,0.10)] text-[var(--text-primary)] rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#5E6AD2]/30 focus:border-[#5E6AD2]/60 transition-colors placeholder:text-[var(--text-muted)]"
               />
             </div>
