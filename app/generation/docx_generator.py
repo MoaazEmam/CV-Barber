@@ -171,12 +171,19 @@ class DocxGenerator(BaseGenerator):
             tab_run.font.name = FONT_NAME
             tab_run.font.size = FONT_SIZE_BODY
 
-            major_para = doc.add_paragraph()
-            major_para.paragraph_format.space_after = Pt(2)
-            run = major_para.add_run(f"Major: {entry.field}")
-            run.italic = True
-            run.font.name = FONT_NAME
-            run.font.size = FONT_SIZE_BODY
+            self._add_edu_detail(doc, f"Major: {entry.field}" if entry.field else None)
+            self._add_edu_detail(doc, f"Minor: {entry.minor}" if entry.minor else None)
+            self._add_edu_detail(doc, entry.honors)
+
+    def _add_edu_detail(self, doc: Document, text: str | None) -> None:
+        if not text:
+            return
+        para = doc.add_paragraph()
+        para.paragraph_format.space_after = Pt(2)
+        run = para.add_run(text)
+        run.italic = True
+        run.font.name = FONT_NAME
+        run.font.size = FONT_SIZE_BODY
 
     def _add_skills(self, doc: Document, cv: TailoredCV) -> None:
         self._add_section_heading(doc, "SKILLS")

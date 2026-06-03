@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ParseResponse(BaseModel):
@@ -12,6 +12,8 @@ class ParseResponse(BaseModel):
     project_count: int
     skills_count: int
     message: str
+    # Non-blocking notices about parse quality (empty sections, missing contact, …).
+    warnings: list[str] = Field(default_factory=list)
 
 
 class TailorRequest(BaseModel):

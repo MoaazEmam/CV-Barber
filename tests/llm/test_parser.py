@@ -91,8 +91,8 @@ class TestCVParser:
 
     async def test_missing_required_field_triggers_retry(self):
         client = AsyncMock(spec=BaseLLMClient)
-        # missing required 'email' field
-        client.complete_json.return_value = json.dumps({"full_name": "Test"})
+        # missing required 'full_name' field (email is intentionally optional now)
+        client.complete_json.return_value = json.dumps({"email": "test@example.com"})
         parser = CVParser(client=client)
         with pytest.raises(LLMValidationError):
             await parser.parse("raw cv text")

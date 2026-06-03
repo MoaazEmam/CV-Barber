@@ -21,16 +21,21 @@ class ExperienceEntry(BaseModel):
     company: Optional[str]=None
     location: Optional[str] = None
     date_range: DateRange
+    # Optional: prose/paragraph CVs may have no bullets, or keep prose as one bullet.
     bullets: list[str] = Field(
-        description="Each bullet is one accomplishment, no leading dash"
+        default_factory=list,
+        description="Each bullet is one accomplishment, no leading dash",
     )
 
 class ProjectEntry(BaseModel):
     name: str
     description: Optional[str] = None
-    tech_stack: list[str] = Field(description="e.g. ['Python', 'FastAPI', 'PostgreSQL']")
+    tech_stack: list[str] = Field(
+        default_factory=list, description="e.g. ['Python', 'FastAPI', 'PostgreSQL']"
+    )
     bullets: list[str] = Field(
-        description="What you built, what it does, results if any"
+        default_factory=list,
+        description="What you built, what it does, results if any",
     )
     url: Optional[str] = None
     date_range: Optional[DateRange] = None
@@ -39,7 +44,10 @@ class EducationEntry(BaseModel):
     institution: str
     degree: Optional[str]=None
     faculty: Optional[str]=None
-    field: str
+    # Optional: bootcamps / high-school / certificate programs often have no field.
+    field: Optional[str] = None
+    minor: Optional[str] = None
+    honors: Optional[str] = None
     date_range: DateRange
     gpa: Optional[str] = None
     relevant_courses: list[str] = Field(default_factory=list)

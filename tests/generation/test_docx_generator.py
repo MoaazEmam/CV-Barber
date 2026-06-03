@@ -111,3 +111,41 @@ class TestDocxGenerator:
         result = generator.generate(sample_tailored_cv)
         assert isinstance(result, bytes)
         assert len(result) > 0
+
+    def test_renders_education_minor_and_honors(self, generator):
+        cv = TailoredCV(
+            full_name="Jane Doe",
+            email="jane@example.com",
+            job_title="Engineer",
+            company_name="Acme",
+            education=[EducationEntry(
+                institution="MIT",
+                field="Computer Science",
+                minor="Mathematics",
+                honors="Magna Cum Laude",
+                date_range=DateRange(start="2018", end="2022"),
+            )],
+        )
+        doc = Document(BytesIO(generator.generate(cv)))
+        full_text = "\n".join(p.text for p in doc.paragraphs)
+        assert "Minor: Mathematics" in full_text
+        assert "Magna Cum Laude" in full_text
+
+    def test_experience_without_bullets_renders(self, generator):
+        # A prose/no-bullet role must generate without raising.
+        cv = TailoredCV(
+            full_name="Jane Doe",
+            email="jane@example.com",
+            job_title="Engineer",
+            company_name="Acme",
+            experience=[ScoredExperienceEntry(
+                title="Consultant",
+                company="Acme",
+                date_range=DateRange(start="2020", end="2021"),
+                relevance_score=5,
+                relevance_reason="relevant",
+            )],
+        )
+        doc = Document(BytesIO(generator.generate(cv)))
+        full_text = "\n".join(p.text for p in doc.paragraphs)
+        assert "Consultant" in full_text
