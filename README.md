@@ -42,6 +42,37 @@ CV Barber parses your CV into structured data, scores every experience and proje
 
 ---
 
+## Architecture
+
+```
+Upload CV → extract text (PyMuPDF / python-docx / OCR)
+         → LLM parse → MasterCV stored in Postgres (JSONB)
+         → background: general ATS score
+
+Tailor   → load MasterCV → LLM score each entry (0–10) against JD
+         → top N entries selected → TailoredCV saved as Application
+         → background: job-match ATS score
+
+Download/Preview → load Application → apply section_config (toggle state)
+                 → render DOCX (python-docx) or PDF (Jinja2 + WeasyPrint)
+```
+
+**LLM providers:** Groq is primary (`llama-3.3-70b-versatile`). If Gemini keys are set, exhausted/rate-limited Groq requests fall back to Gemini automatically. Keys are round-robin rotated; daily quota exhaustion is detected and the key is blocked until midnight Pacific.
+
+**Data model (simplified):**
+```
+MasterCV    — full_name, email, education[], experience[], projects[], skills[], certifications[]
+Application — master_cv_id + job_title/company/JD + TailoredCV (JSONB) + section_config (JSONB)
+```
+
+**Auth:** JWT bearer (1-hour access token) + refresh token. All `/api/*` routes require `Authorization: Bearer <token>`. The frontend auto-refreshes on 401 and retries the original request; redirects to login if refresh fails.
+
+**Rate limits:** LLM endpoints → 30 req/hour / 80 req/day per user. Auth endpoints → 5 attempts/60s per IP.
+
+**Deduplication:** SHA-256 of the parsed CV text is stored; re-uploading the same CV returns the existing master CV immediately without re-parsing.
+
+---
+
 ## Getting started
 
 ### Option A — Full Docker stack (recommended)
@@ -109,17 +140,16 @@ docker compose restart app
 | `DATABASE_URL` | — | **yes** | Async Postgres URL: `postgresql+asyncpg://user:pass@host:port/db` |
 | `SECRET_KEY` | — | **yes** | JWT signing key — generate with `openssl rand -hex 32` |
 | `LLM_PROVIDER` | `groq` | no | `groq`, `gemini`, or `ollama` |
-| `GROQ_API_KEY` | — | no | Single Groq key (get one free at [console.groq.com](https://console.groq.com)) |
-| `GROQ_API_KEYS` | — | no | Comma-separated Groq keys — preferred; ~14,400 req/day per key |
+| `GROQ_API_KEYS` | — | no | Comma-separated Groq keys; ~14,400 req/day per key. Single key also accepted as `GROQ_API_KEY` |
 | `GROQ_MODEL` | `llama-3.3-70b-versatile` | no | Groq model name |
-| `GEMINI_API_KEY` | — | no | Single Gemini key — used as automatic fallback when Groq is exhausted |
-| `GEMINI_API_KEYS` | — | no | Comma-separated Gemini keys; same fallback role |
+| `GEMINI_API_KEYS` | — | no | Comma-separated Gemini keys; auto-fallback when Groq is exhausted. Single key also accepted as `GEMINI_API_KEY` |
 | `GEMINI_MODEL` | `gemini-2.5-flash` | no | Gemini model name |
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | no | Ollama server URL |
 | `OLLAMA_MODEL` | `llama3.1` | no | Ollama model name |
 | `OUTPUT_FORMAT` | `pdf` | no | Default download format (`pdf` or `docx`) |
-| `TOP_N_EXPERIENCE` | `3` | no | Default max experience entries to include |
-| `TOP_N_PROJECTS` | `3` | no | Default max project entries to include |
+| `TOP_N_EXPERIENCE` | `3` | no | Max experience entries kept after scoring |
+| `TOP_N_PROJECTS` | `3` | no | Max project entries kept after scoring |
+| `OCR_ENABLED` | `true` | no | OCR fallback for scanned PDFs — requires Tesseract (pre-installed in Docker) |
 | `ENV` | `development` | no | `development` (pretty logs, SQL echo) or `production` (JSON logs) |
 | `API_HOST` | `0.0.0.0` | no | Uvicorn bind host |
 | `API_PORT` | `8000` | no | Uvicorn bind port |
@@ -210,6 +240,8 @@ frontend/                # React + Vite + Tailwind v4
 alembic/                 # Async-mode Alembic migrations
 tests/                   # pytest suite (async SQLite in-memory)
 ```
+
+> **OCR note:** scanned/image-only PDFs fall back to Tesseract. The Docker image installs `tesseract-ocr` automatically. On a local dev machine without Tesseract, OCR is skipped gracefully and the parse returns a "looks scanned" warning.
 
 ---
 
