@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.dependencies import delete_application
 from app.api.models import ApplicationDetail, ApplicationSummary, HistoryResponse
 from app.auth.config import current_active_user
 from app.db.dependencies import get_db
@@ -71,3 +72,15 @@ async def get_application_detail(
         section_config=application.section_config,
         cover_letter=application.cover_letter,
     )
+
+
+@router.delete("/applications/{application_id}", status_code=204)
+async def delete_application_endpoint(
+    application_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(current_active_user),
+):
+    try:
+        await delete_application(db, application_id, current_user.id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Not found")

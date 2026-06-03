@@ -4,8 +4,10 @@ const useAppStore = create((set) => ({
   // Auth
   user: null,
   token: null,
+  authReady: false,
   setAuth: (user, token) => set({ user, token }),
   setToken: (token) => set({ token }),
+  setAuthReady: (v) => set({ authReady: v }),
   clearAuth: () => set({ user: null, token: null }),
 
   // CV parsing

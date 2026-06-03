@@ -1,5 +1,6 @@
 import { Link, Outlet, useNavigate } from 'react-router-dom'
 import useAppStore from '../store/useAppStore'
+import api from '../lib/axios'
 
 export default function Layout() {
   const navigate = useNavigate()
@@ -8,6 +9,7 @@ export default function Layout() {
   const clearAuth = useAppStore((s) => s.clearAuth)
 
   const handleSignOut = () => {
+    api.post('/auth/logout').catch(() => {})
     clearAuth()
     navigate('/login')
   }
