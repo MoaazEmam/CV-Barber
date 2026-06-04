@@ -6,10 +6,12 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     LargeBinary,
     String,
     Text,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -19,8 +21,16 @@ from app.db.base import Base
 
 class User(SQLAlchemyBaseUserTableUUID, Base):
     __tablename__ = "users"
-    username: Mapped[str] = mapped_column(String, unique=True, nullable=False, index=True)
+    username: Mapped[str] = mapped_column(String, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    # Case-insensitive uniqueness on username: a functional unique index on
+    # lower(username) so "John" and "john" can't both exist. This also serves the
+    # case-insensitive login lookup in UserManager.authenticate. (Email is handled
+    # case-insensitively by FastAPI Users' get_by_email.)
+    __table_args__ = (
+        Index("ix_users_username_lower", text("lower(username)"), unique=True),
+    )
 
 
 class MasterCVModel(Base):
