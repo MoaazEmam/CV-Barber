@@ -2,10 +2,10 @@ import uuid
 from typing import Optional, Union
 
 import structlog
-from fastapi import Depends, Request
+from fastapi import Depends, HTTPException, Request
 from fastapi_users import BaseUserManager, InvalidPasswordException, UUIDIDMixin
 from fastapi_users.db import SQLAlchemyUserDatabase
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.auth.config import get_user_db
 from app.auth.schemas import UserCreate
@@ -34,6 +34,25 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
                 reason="Password must not contain your email address."
             )
 
+    async def create(
+        self,
+        user_create: UserCreate,
+        safe: bool = False,
+        request: Optional[Request] = None,
+    ) -> User:
+        # Reject case-insensitive username clashes with a clear message before the
+        # base class inserts the row — otherwise the unique index on
+        # lower(username) raises an opaque IntegrityError (HTTP 500). The unique
+        # index remains the source of truth (this is just for a friendly error).
+        result = await self.user_db.session.execute(
+            select(User).where(
+                func.lower(User.username) == user_create.username.lower()
+            )
+        )
+        if result.scalars().first() is not None:
+            raise HTTPException(status_code=400, detail="That username is already taken.")
+        return await super().create(user_create, safe=safe, request=request)
+
     async def authenticate(self, credentials) -> Optional[User]:
         user = None
         try:
@@ -42,10 +61,13 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
             pass
 
         if user is None:
+            # Case-insensitive username match (email lookup above already is).
             result = await self.user_db.session.execute(
-                select(User).where(User.username == credentials.username)
+                select(User).where(
+                    func.lower(User.username) == credentials.username.lower()
+                )
             )
-            user = result.scalar_one_or_none()
+            user = result.scalars().first()
 
         if user is None:
             self.password_helper.hash(credentials.password)
