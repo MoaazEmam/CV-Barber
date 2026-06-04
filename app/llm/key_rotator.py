@@ -15,7 +15,7 @@ class KeyState:
     def __init__(self, key: str):
         self.key = key
         self.is_exhausted_until: float = 0
-        self.daily_exhausted_at: float | None = False
+        self.daily_exhausted_at: float | None = None
 
     def mark_daily_exhausted(self) -> None:
         self.daily_exhausted_at = time.time()
@@ -65,7 +65,7 @@ class KeyRotator:
         temporarily_limited = [
             s
             for s in self._states_map.values()
-            if not s.daily_exhausted and not s.is_available()
+            if not s.daily_exhausted_at and not s.is_available()
         ]
         if temporarily_limited:
             soonest = min(s.is_exhausted_until for s in temporarily_limited)

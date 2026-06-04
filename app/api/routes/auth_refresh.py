@@ -48,7 +48,9 @@ async def login_with_refresh(
 ):
     user = await user_manager.authenticate(credentials)
     if user is None or not user.is_active:
-        raise HTTPException(status_code=400, detail="LOGIN_BAD_CREDENTIALS")
+        raise HTTPException(
+            status_code=400, detail="Incorrect email/username or password."
+        )
 
     access = await get_jwt_strategy().write_token(user)
     refresh = await get_refresh_strategy().write_token(user)

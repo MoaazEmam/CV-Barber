@@ -9,6 +9,7 @@ from sqlalchemy import func, select
 
 from app.auth.config import get_user_db
 from app.auth.schemas import UserCreate
+from app.auth.validation import validate_username
 from app.config import settings
 from app.db.models import User
 
@@ -40,6 +41,7 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         safe: bool = False,
         request: Optional[Request] = None,
     ) -> User:
+        validate_username(user_create.username)
         # Reject case-insensitive username clashes with a clear message before the
         # base class inserts the row — otherwise the unique index on
         # lower(username) raises an opaque IntegrityError (HTTP 500). The unique

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import api from '../lib/axios'
+import { authErrorMessage } from '../lib/authErrors'
 import useAppStore from '../store/useAppStore'
 import PasswordInput from '../components/PasswordInput'
 
@@ -17,6 +18,24 @@ export default function RegisterPage() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
+
+    const uname = username.trim()
+    if (uname.length < 3) {
+      setError('Username must be at least 3 characters long.')
+      return
+    }
+    if (uname.length > 30) {
+      setError('Username must be at most 30 characters long.')
+      return
+    }
+    if (!/^[A-Za-z0-9]+$/.test(uname)) {
+      setError('Username can only contain letters and numbers.')
+      return
+    }
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters long.')
+      return
+    }
     if (password !== confirmPassword) {
       setError("Passwords don't match.")
       return
@@ -25,7 +44,7 @@ export default function RegisterPage() {
     try {
       await api.post(
         '/auth/register',
-        { email, username, password },
+        { email, username: uname, password },
         { headers: { 'Content-Type': 'application/json' } },
       )
 
@@ -42,11 +61,7 @@ export default function RegisterPage() {
       setAuth(meRes.data, token)
       navigate('/')
     } catch (err) {
-      const detail = err.response?.data?.detail
-      if (typeof detail === 'string') setError(detail)
-      else if (Array.isArray(detail)) setError(detail.map((d) => d.msg).join(', '))
-      else if (detail?.reason) setError(detail.reason)
-      else setError('Registration failed.')
+      setError(authErrorMessage(err, 'register'))
     } finally {
       setLoading(false)
     }

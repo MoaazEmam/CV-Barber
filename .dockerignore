@@ -10,3 +10,10 @@ scripts/
 *.pdf
 *.docx
 output_cv.*
+/CLAUDE.md
+.claude
+.playwright-mcp
+moaaz_emam_ahmed_def.pdf
+*.png
+*.jpeg
+uiflow

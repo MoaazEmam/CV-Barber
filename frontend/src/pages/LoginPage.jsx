@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import api from '../lib/axios'
+import { authErrorMessage } from '../lib/authErrors'
 import useAppStore from '../store/useAppStore'
 import PasswordInput from '../components/PasswordInput'
 
@@ -32,9 +33,7 @@ export default function LoginPage() {
       setAuth(meRes.data, token)
       navigate('/')
     } catch (err) {
-      const detail = err.response?.data?.detail
-      if (typeof detail === 'string') setError(detail)
-      else setError('Login failed. Check your credentials.')
+      setError(authErrorMessage(err, 'login'))
     } finally {
       setLoading(false)
     }
