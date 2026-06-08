@@ -30,7 +30,10 @@ class Settings(BaseSettings):
     ocr_dpi: int = Field(default=300)
     tessdata_prefix: str | None = Field(default=None)  # overrides TESSDATA_PREFIX env
 
-    output_format: str = Field(default="pdf")
+    # When False, DOCX inputs may only render back to DOCX ("keep original"); when
+    # True they may also use the HTML/.tex templates (DOCX -> PDF). "Keep original"
+    # stays the default for DOCX either way.
+    allow_docx_to_pdf: bool = Field(default=True)
     top_n_projects: int = Field(default=3)
     top_n_experience: int = Field(default=3)
     api_host: str = Field(default="0.0.0.0")
