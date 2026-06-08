@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<!--
+  CV Barber - EXAMPLE custom HTML template (rendered to PDF by WeasyPrint).
+
+  This is a TEMPLATE, not a finished CV. The {{ ... }} and {% ... %} markers are
+  placeholders filled with YOUR tailored CV data on download. Edit the CSS/layout
+  freely, but KEEP the placeholders - a template with your own text hardcoded will
+  produce the same PDF every time. Keep it single-column for ATS-friendliness.
+
+  Available data (the `cv` object): cv.full_name, cv.email, cv.phone, cv.location,
+  cv.linkedin, cv.github, cv.website, cv.tailored_summary, cv.experience[],
+  cv.projects[], cv.skills[], cv.education[], cv.certifications[],
+  cv.additional_sections[]. See field names inline below.
+-->
+<style>
+  @page { margin: 0.5in 0.6in; }
+  body { font-family: Georgia, "Times New Roman", serif; font-size: 10.5pt; color: #000; line-height: 1.3; margin: 0; }
+  .name { text-align: center; font-size: 20pt; font-weight: bold; }
+  .contact { text-align: center; font-size: 9.5pt; margin: 2pt 0 4pt; }
+  .contact a { color: #000; text-decoration: none; }
+  h2 { font-size: 11pt; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #000; padding-bottom: 1pt; margin: 9pt 0 4pt; }
+  .row { display: flex; justify-content: space-between; align-items: baseline; }
+  .row .meta { white-space: nowrap; padding-left: 1em; font-style: italic; }
+  .title { font-weight: bold; }
+  .sub { font-style: italic; }
+  ul { margin: 2pt 0 5pt; padding-left: 16pt; }
+  li { margin-bottom: 1pt; }
+  .cat { font-weight: bold; }
+</style>
+</head>
+<body>
+
+<div class="name">{{ cv.full_name }}</div>
+<div class="contact">
+  {% set sep = joiner(" | ") %}
+  {% if cv.location %}{{ sep() }}{{ cv.location }}{% endif %}
+  {% if cv.phone %}{{ sep() }}{{ cv.phone }}{% endif %}
+  {% if cv.email %}{{ sep() }}<a href="mailto:{{ cv.email }}">{{ cv.email }}</a>{% endif %}
+  {% if cv.linkedin %}{{ sep() }}<a href="{{ cv.linkedin }}">{{ cv.linkedin }}</a>{% endif %}
+  {% if cv.github %}{{ sep() }}<a href="{{ cv.github }}">{{ cv.github }}</a>{% endif %}
+</div>
+
+{% if cv.tailored_summary %}
+<h2>Summary</h2>
+<p>{{ cv.tailored_summary }}</p>
+{% endif %}
+
+{% if cv.education %}
+<h2>Education</h2>
+{% for edu in cv.education %}
+<div class="row"><span class="title">{{ edu.institution }}</span><span class="meta">{% if edu.date_range and edu.date_range.start %}{{ edu.date_range.start }}{% if edu.date_range.end %} – {{ edu.date_range.end }}{% endif %}{% endif %}</span></div>
+<div class="sub">{{ edu.degree }}{% if edu.field %}, {{ edu.field }}{% endif %}{% if edu.gpa %} · GPA: {{ edu.gpa }}{% endif %}</div>
+{% if edu.relevant_courses %}<div><strong>Relevant Coursework:</strong> {{ edu.relevant_courses | join(", ") }}</div>{% endif %}
+{% endfor %}
+{% endif %}
+
+{% if cv.experience %}
+<h2>Experience</h2>
+{% for exp in cv.experience %}
+<div class="row"><span class="title">{{ exp.title }}{% if exp.company %} — {{ exp.company }}{% endif %}</span><span class="meta">{% if exp.date_range and exp.date_range.start %}{{ exp.date_range.start }}{% if exp.date_range.end %} – {{ exp.date_range.end }}{% endif %}{% endif %}</span></div>
+{% if exp.location %}<div class="sub">{{ exp.location }}</div>{% endif %}
+{% if exp.bullets %}<ul>{% for b in exp.bullets %}<li>{{ b }}</li>{% endfor %}</ul>{% endif %}
+{% endfor %}
+{% endif %}
+
+{% if cv.projects %}
+<h2>Projects</h2>
+{% for proj in cv.projects %}
+<div class="row"><span class="title">{{ proj.name }}{% if proj.tech_stack %} — {{ proj.tech_stack | join(", ") }}{% endif %}</span><span class="meta">{% if proj.date_range and proj.date_range.start %}{{ proj.date_range.start }}{% endif %}</span></div>
+{% if proj.description %}<div class="sub">{{ proj.description }}</div>{% endif %}
+{% if proj.bullets %}<ul>{% for b in proj.bullets %}<li>{{ b }}</li>{% endfor %}</ul>{% endif %}
+{% endfor %}
+{% endif %}
+
+{% if cv.skills %}
+<h2>Skills</h2>
+{% for cat in cv.skills %}<div><span class="cat">{{ cat.category }}:</span> {{ cat.skills | join(", ") }}</div>{% endfor %}
+{% endif %}
+
+{% if cv.certifications %}
+<h2>Certifications</h2>
+<ul>{% for c in cv.certifications %}<li>{{ c }}</li>{% endfor %}</ul>
+{% endif %}
+
+{% for sec in cv.additional_sections %}{% if sec.entries %}
+<h2>{{ sec.title }}</h2>
+{% for e in sec.entries %}
+{% if e.heading or e.subheading %}<div class="row"><span class="title">{{ e.heading }}{% if e.subheading %} — {{ e.subheading }}{% endif %}</span><span class="meta">{% if e.date_range and e.date_range.start %}{{ e.date_range.start }}{% endif %}</span></div>{% endif %}
+{% if e.detail %}<div class="sub">{{ e.detail }}</div>{% endif %}
+{% if e.bullets %}<ul>{% for b in e.bullets %}<li>{{ b }}</li>{% endfor %}</ul>{% endif %}
+{% endfor %}
+{% endif %}{% endfor %}
+
+</body>
+</html>

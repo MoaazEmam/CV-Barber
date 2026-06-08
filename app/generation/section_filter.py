@@ -19,7 +19,7 @@ def apply_section_config(cv: TailoredCV, section_config: dict | None) -> Tailore
 
     data = cv.model_dump()
 
-    list_section_keys = {"experience", "projects", "skills", "education"}
+    list_section_keys = {"experience", "projects", "skills", "education", "additional_sections"}
     cert_key = "certifications"
 
     for section_key in list(list_section_keys):
