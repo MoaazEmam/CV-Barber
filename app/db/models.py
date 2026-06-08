@@ -44,6 +44,11 @@ class MasterCVModel(Base):
     file_type: Mapped[str] = mapped_column(String, nullable=False)
     parsed_data: Mapped[dict] = mapped_column(JSONB, nullable=False)
     text_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    # New pipeline cache (per dedup hash): the format-preserving template and the
+    # span->role section map produced once by the Tier 1 LLM. template_artifact is
+    # a .tex string for PDF inputs, or a JSON-serialised paragraph-index map for DOCX.
+    template_artifact: Mapped[str | None] = mapped_column(Text, nullable=True)
+    section_map: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     general_ats_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
     ats_improvement_points: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
@@ -65,6 +70,9 @@ class ApplicationModel(Base):
     job_description: Mapped[str] = mapped_column(Text, nullable=False)
     tailored_cv_data: Mapped[dict] = mapped_column(JSONB, nullable=False)
     section_config: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    # Chosen output template: "keep_original", "builtin:<id>", or "custom:<uuid>".
+    # Null means "use the default for the input format" (see render_dispatch).
+    template_id: Mapped[str | None] = mapped_column(String, nullable=True)
     job_match_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
     job_improvement_points: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     cover_letter: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -80,4 +88,19 @@ class QAResponseModel(Base):
     )
     question: Mapped[str] = mapped_column(Text, nullable=False)
     answer: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class UserTemplateModel(Base):
+    """A custom CV template uploaded by a user (.html for WeasyPrint or .tex for
+    Tectonic). Rendered only in a sandbox. Reusable across the user's applications."""
+    __tablename__ = "user_templates"
+
+    id: Mapped[uuid4] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    user_id: Mapped[uuid4] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
+    )
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    format: Mapped[str] = mapped_column(String, nullable=False)  # "html" | "tex"
+    source: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

@@ -15,7 +15,6 @@ from app.db.dependencies import get_db
 from app.db.models import MasterCVModel, User
 from app.extraction import TextExtractor
 from app.llm import (
-    CVParser,
     LLMAllKeysExhaustedError,
     LLMRateLimitError,
     LLMValidationError,
@@ -130,10 +129,18 @@ async def parse_cv(
             ),
         )
 
+    file_type = "pdf" if file.filename.lower().endswith(".pdf") else "docx"
+    template_artifact: str | None = None
+    section_map: dict | None = None
+
     try:
-        parser = CVParser()
-        log.info("llm_parse_started")
-        master_cv = await parser.parse(raw_text)
+        from app.pipeline.pipeline import run_parse
+
+        log.info("pipeline_parse_started", fmt=file_type)
+        result = await run_parse(file_bytes, file_type, raw_text)
+        master_cv = result.master_cv
+        template_artifact = result.template_artifact
+        section_map = result.section_map
         log.info(
             "llm_parse_completed",
             experience=len(master_cv.experience),
@@ -150,11 +157,26 @@ async def parse_cv(
             detail=f"Service is busy. Please try again in {e.retry_after_seconds} seconds.",
         )
     except LLMValidationError as e:
-        raise HTTPException(status_code=422, detail=str(e))
+        # Log the raw validation detail for debugging, but never leak the pydantic
+        # error dump to the user — surface a clean, actionable message instead.
+        log.warning("cv_parse_validation_failed", error=str(e))
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "We couldn't reliably read your CV's structure. Please try again, "
+                "or upload a different version of the file."
+            ),
+        )
 
-    file_type = "pdf" if file.filename.lower().endswith(".pdf") else "docx"
     session_id: UUID = await save_master_cv(
-        db, master_cv, file_bytes, file_type, user_id=current_user.id, text_hash=text_hash
+        db,
+        master_cv,
+        file_bytes,
+        file_type,
+        user_id=current_user.id,
+        text_hash=text_hash,
+        template_artifact=template_artifact,
+        section_map=section_map,
     )
 
     # Auto-trigger general ATS score with a fresh DB session.
