@@ -4,7 +4,12 @@ from uuid import UUID, uuid4
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import ApplicationModel, MasterCVModel, QAResponseModel
+from app.db.models import (
+    ApplicationModel,
+    MasterCVModel,
+    QAResponseModel,
+    UserTemplateModel,
+)
 from app.schemas.master_cv import MasterCV
 from app.schemas.tailored_cv import TailoredCV
 
@@ -16,6 +21,8 @@ async def save_master_cv(
     file_type: str,
     user_id: UUID,
     text_hash: str | None = None,
+    template_artifact: str | None = None,
+    section_map: dict | None = None,
 ) -> UUID:
     row = MasterCVModel(
         id=uuid4(),
@@ -24,6 +31,8 @@ async def save_master_cv(
         file_type=file_type,
         parsed_data=master_cv.model_dump(),
         text_hash=text_hash,
+        template_artifact=template_artifact,
+        section_map=section_map,
         is_active=True,
     )
     db.add(row)
@@ -53,6 +62,7 @@ async def save_application(
     company_name: str,
     job_description: str,
     user_id: UUID,
+    template_id: str | None = None,
 ) -> UUID:
     row = ApplicationModel(
         id=uuid4(),
@@ -62,6 +72,7 @@ async def save_application(
         company_name=company_name,
         job_description=job_description,
         tailored_cv_data=tailored_cv.model_dump(),
+        template_id=template_id,
     )
     db.add(row)
     await db.commit()
@@ -152,3 +163,46 @@ async def list_master_cvs(db: AsyncSession, user_id: UUID) -> list[dict]:
             }
         )
     return items
+
+
+# --- custom user templates ---------------------------------------------------
+
+async def create_user_template(
+    db: AsyncSession, user_id: UUID, name: str, fmt: str, source: str
+) -> UUID:
+    row = UserTemplateModel(
+        id=uuid4(), user_id=user_id, name=name, format=fmt, source=source
+    )
+    db.add(row)
+    await db.commit()
+    await db.refresh(row)
+    return row.id
+
+
+async def list_user_templates(db: AsyncSession, user_id: UUID) -> list[UserTemplateModel]:
+    result = await db.execute(
+        select(UserTemplateModel)
+        .where(UserTemplateModel.user_id == user_id)
+        .order_by(UserTemplateModel.created_at.desc())
+    )
+    return list(result.scalars().all())
+
+
+async def get_user_template(
+    db: AsyncSession, template_id: UUID, user_id: UUID
+) -> UserTemplateModel | None:
+    result = await db.execute(
+        select(UserTemplateModel).where(
+            UserTemplateModel.id == template_id,
+            UserTemplateModel.user_id == user_id,
+        )
+    )
+    return result.scalar_one_or_none()
+
+
+async def delete_user_template(db: AsyncSession, template_id: UUID, user_id: UUID) -> None:
+    row = await get_user_template(db, template_id, user_id)
+    if row is None:
+        raise KeyError(f"UserTemplate {template_id} not found")
+    await db.delete(row)
+    await db.commit()

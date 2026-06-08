@@ -12,7 +12,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.api.rate_limit import AuthRateLimitMiddleware, limiter
-from app.api.routes import auth_refresh, ats, cover_letter, history, master_cvs, parse, preview, qa, structure, tailor
+from app.api.routes import auth_refresh, ats, cover_letter, history, master_cvs, parse, preview, qa, structure, tailor, templates
 from app.auth.config import auth_backend, fastapi_users
 from app.auth.schemas import UserCreate, UserRead, UserUpdate
 from app.config import settings
@@ -43,7 +43,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "Content-Security-Policy",
             "default-src 'self'; img-src 'self' data:; "
             "style-src 'self' 'unsafe-inline'; script-src 'self'; "
-            "frame-src 'self'; object-src 'none'; base-uri 'self'",
+            # blob: lets the in-app PDF preview render the rendered-CV blob in an iframe.
+            "frame-src 'self' blob:; object-src 'self' blob:; base-uri 'self'",
         )
         # Only assert HSTS when actually served over HTTPS.
         if request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https":
@@ -105,6 +106,7 @@ def create_app() -> FastAPI:
     app.include_router(ats.router, prefix="/api")
     app.include_router(master_cvs.router, prefix="/api")
     app.include_router(cover_letter.router, prefix="/api")
+    app.include_router(templates.router, prefix="/api")
 
     @app.get("/api/health")
     async def health():
