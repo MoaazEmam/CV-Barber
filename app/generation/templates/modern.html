@@ -1,0 +1,30 @@
+{% import "_macros.html" as m %}<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @page { margin: 0.45in 0.6in; }
+  body { font-family: "Helvetica Neue", Helvetica, Arial, sans-serif; font-size: 10pt; color: #1a1a1a; margin: 0; line-height: 1.35; }
+  .name { font-size: 22pt; font-weight: 700; color: #1f3a5f; }
+  .contact { font-size: 9pt; color: #444; margin-top: 1pt; margin-bottom: 6pt; }
+  .contact a { color: #1f3a5f; text-decoration: none; }
+  .section { margin-top: 10pt; }
+  .section-heading { font-size: 10.5pt; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px;
+                     color: #1f3a5f; border-bottom: 2px solid #1f3a5f; padding-bottom: 2pt; margin-bottom: 5pt; }
+  .entry { margin-bottom: 6pt; }
+  .entry-header { display: flex; justify-content: space-between; align-items: baseline; }
+  .entry-title { font-weight: 700; }
+  .entry-meta { white-space: nowrap; padding-left: 1em; color: #555; font-size: 9pt; }
+  .entry-sub { color: #444; }
+  .entry-detail { margin-top: 1pt; }
+  ul { margin: 3pt 0 0 0; padding-left: 15pt; }
+  li { margin-bottom: 1.5pt; }
+  .summary { margin: 0; }
+  .skill-line { margin-bottom: 2pt; }
+  .skill-category { font-weight: 700; color: #1f3a5f; }
+</style>
+</head>
+<body>
+{{ m.body(cv) }}
+</body>
+</html>

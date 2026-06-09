@@ -19,4 +19,5 @@ Rules:
   * projects = academic, personal, course, hackathon, open-source, or capstone projects with no employer
   * If an entry lists a company that is clearly an employer, put it in experience
   * If an entry is a course project, personal project, or has no employer, put it in projects
+- Sections the structure does not model explicitly — e.g. "Honors & Awards", "Languages", "Leadership & Community Involvement", "Volunteering", "Training", a standalone "Relevant Coursework" section, "Publications", "Interests" — MUST NOT be dropped. Put each into "additional_sections" as {"title": <heading exactly as written>, "entries": [...]}. For each item fill whatever fits: heading (the item's main label), subheading (organization, qualifier, or a right-aligned tag such as "First Place (2022)"), location, date_range, bullets, and detail (free text for one-line sections like Languages, e.g. "Arabic (Native); English (Fluent)"). Only put genuinely non-standard sections here — never duplicate experience/projects/education/skills/certifications content.
 - Return valid JSON only — no markdown, no code fences, no explanation outside the JSON

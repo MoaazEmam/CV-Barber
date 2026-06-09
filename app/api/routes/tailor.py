@@ -12,11 +12,9 @@ from app.api.models import SectionConfigUpdate, TailorRequest, TailorResponse
 from app.api.rate_limit import LLM_USER_LIMITS, limiter
 from app.db.models import ApplicationModel
 from app.auth.config import current_active_user
-from app.config import Settings, settings as default_settings
 from app.db.dependencies import get_db
 from app.db.base import AsyncSessionLocal
 from app.db.models import User
-from app.generation import GeneratorFactory
 from app.llm import (
     CVScorer,
     LLMAllKeysExhaustedError,
@@ -24,6 +22,7 @@ from app.llm import (
     LLMValidationError,
 )
 from app.schemas.config import TailoringConfig
+from app.schemas.tailored_cv import TailoredCV
 
 router = APIRouter()
 log = structlog.get_logger()
@@ -55,6 +54,7 @@ async def tailor_cv(
         company_name=payload.company_name,
         top_n_experience=payload.top_n_experience,
         top_n_projects=payload.top_n_projects,
+        rewrite_summary=payload.rewrite_summary,
     )
 
     try:
@@ -82,7 +82,14 @@ async def tailor_cv(
             detail=f"Service is busy. Please try again in {e.retry_after_seconds} seconds.",
         )
     except LLMValidationError as e:
-        raise HTTPException(status_code=422, detail=str(e))
+        log.warning("cv_tailor_validation_failed", error=str(e))
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "We couldn't reliably tailor your CV for this job. Please try again "
+                "in a moment."
+            ),
+        )
 
     tailored_id = await save_application(
         db,
@@ -160,35 +167,33 @@ async def tailor_cv(
 @router.get("/download/{tailored_id}")
 async def download_cv(
     tailored_id: UUID,
-    format: str = "docx",
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(current_active_user),
 ):
-    result = await db.execute(
+    application = await db.scalar(
         select(ApplicationModel).where(ApplicationModel.id == tailored_id)
     )
-    application = result.scalar_one_or_none()
     if application is None:
         raise HTTPException(status_code=404, detail="Tailored CV not found.")
     if application.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Forbidden")
 
-    from app.schemas.tailored_cv import TailoredCV
+    # Output format is decided by the chosen template (PDF for any template, DOCX
+    # only for "keep original"); resolved + rendered by render_application.
+    from app.api.render_helpers import render_application
+    from app.generation.render_dispatch import output_filename
+
+    try:
+        rendered = await render_application(db, application)
+    except Exception as e:
+        log.warning("download_render_failed", error=str(e))
+        raise HTTPException(status_code=500, detail="Failed to render the tailored CV.")
+
     tailored_cv = TailoredCV.model_validate(application.tailored_cv_data)
-
-    # override settings format with query param
-    override_settings = Settings(
-        **{**default_settings.model_dump(), "output_format": format}
-    )
-    factory = GeneratorFactory(settings=override_settings)
-    generator = factory.create()
-
-    file_bytes = generator.generate(tailored_cv, section_config=application.section_config)
-    filename = generator.filename(tailored_cv)
-
+    filename = output_filename(tailored_cv, rendered.extension)
     return Response(
-        content=file_bytes,
-        media_type=generator.content_type(),
+        content=rendered.content,
+        media_type=rendered.content_type,
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
 

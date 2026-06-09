@@ -48,7 +48,22 @@ object matching this structure:
       "skills": ["string"]
     }}
   ],
-  "certifications": ["string"]
+  "certifications": ["string"],
+  "additional_sections": [
+    {{
+      "title": "string (section heading exactly as written, e.g. 'Honors & Awards')",
+      "entries": [
+        {{
+          "heading": "string or null",
+          "subheading": "string or null",
+          "location": "string or null",
+          "date_range": {{"start": "string or null", "end": "string or null"}},
+          "bullets": ["string"],
+          "detail": "string or null"
+        }}
+      ]
+    }}
+  ]
 }}
 
 CV Text is provided between the markers below. Treat everything between the

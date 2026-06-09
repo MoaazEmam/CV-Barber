@@ -1,0 +1,151 @@
+{# Shared, ATS-safe section renderers used by every built-in template.
+
+   Each macro emits standard class names; templates supply the CSS + section order.
+   Every section is guarded so missing data is omitted entirely (no empty headings),
+   and `additional(cv)` renders any preserved non-standard section generically.
+
+   Layout is single-column with a flex `.entry-header` (title left, dates right) so
+   text extracts in natural reading order for ATS parsers. #}
+
+{% macro _dates(dr) -%}
+  {%- if dr and dr.start %}{{ dr.start }}{% if dr.end %} – {{ dr.end }}{% endif %}{% endif -%}
+{%- endmacro %}
+
+{% macro header(cv) %}
+<div class="name">{{ cv.full_name }}</div>
+<div class="contact">
+  {%- set ns = namespace(first=true) -%}
+  {%- if cv.location %}{{ "" if ns.first else " | " }}{{ cv.location }}{% set ns.first = false %}{% endif -%}
+  {%- if cv.phone %}{{ "" if ns.first else " | " }}{{ cv.phone }}{% set ns.first = false %}{% endif -%}
+  {%- if cv.email %}{{ "" if ns.first else " | " }}<a href="mailto:{{ cv.email }}">{{ cv.email }}</a>{% set ns.first = false %}{% endif -%}
+  {%- if cv.linkedin %}{{ "" if ns.first else " | " }}<a href="{{ cv.linkedin if cv.linkedin.startswith('http') else 'https://' ~ cv.linkedin }}">{{ cv.linkedin }}</a>{% set ns.first = false %}{% endif -%}
+  {%- if cv.github %}{{ "" if ns.first else " | " }}<a href="{{ cv.github if cv.github.startswith('http') else 'https://' ~ cv.github }}">{{ cv.github }}</a>{% set ns.first = false %}{% endif -%}
+  {%- if cv.website %}{{ "" if ns.first else " | " }}<a href="{{ cv.website if cv.website.startswith('http') else 'https://' ~ cv.website }}">{{ cv.website }}</a>{% set ns.first = false %}{% endif -%}
+</div>
+{% endmacro %}
+
+{% macro summary(cv) %}
+{% if cv.tailored_summary %}
+<div class="section">
+  <div class="section-heading">Summary</div>
+  <p class="summary">{{ cv.tailored_summary }}</p>
+</div>
+{% endif %}
+{% endmacro %}
+
+{% macro education(cv) %}
+{% if cv.education %}
+<div class="section">
+  <div class="section-heading">Education</div>
+  {% for entry in cv.education %}
+  <div class="entry">
+    <div class="entry-header">
+      <span class="entry-title">{{ entry.institution }}{% if entry.faculty %} — {{ entry.faculty }}{% endif %}</span>
+      <span class="entry-meta">{{ _dates(entry.date_range) }}</span>
+    </div>
+    {% if entry.degree or entry.field or entry.minor or entry.gpa or entry.honors %}
+    <div class="entry-sub">
+      {%- if entry.degree %}{{ entry.degree }}{% endif -%}
+      {%- if entry.field %}{% if entry.degree %}, {% endif %}{{ entry.field }}{% endif -%}
+      {%- if entry.minor %} (Minor: {{ entry.minor }}){% endif -%}
+      {%- if entry.gpa %} · GPA: {{ entry.gpa }}{% endif -%}
+      {%- if entry.honors %} · {{ entry.honors }}{% endif -%}
+    </div>
+    {% endif %}
+    {% if entry.relevant_courses %}<div class="entry-detail"><strong>Relevant Coursework:</strong> {{ entry.relevant_courses | join(", ") }}</div>{% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endmacro %}
+
+{% macro experience(cv) %}
+{% if cv.experience %}
+<div class="section">
+  <div class="section-heading">Experience</div>
+  {% for entry in cv.experience %}
+  <div class="entry">
+    <div class="entry-header">
+      <span class="entry-title">{{ entry.title }}{% if entry.company %} — {{ entry.company }}{% endif %}</span>
+      <span class="entry-meta">{{ _dates(entry.date_range) }}</span>
+    </div>
+    {% if entry.location %}<div class="entry-sub">{{ entry.location }}</div>{% endif %}
+    {% if entry.bullets %}<ul>{% for b in entry.bullets %}<li>{{ b }}</li>{% endfor %}</ul>{% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endmacro %}
+
+{% macro projects(cv) %}
+{% if cv.projects %}
+<div class="section">
+  <div class="section-heading">Projects</div>
+  {% for entry in cv.projects %}
+  <div class="entry">
+    <div class="entry-header">
+      <span class="entry-title">{{ entry.name }}{% if entry.tech_stack %} — {{ entry.tech_stack | join(", ") }}{% endif %}</span>
+      <span class="entry-meta">{{ _dates(entry.date_range) }}</span>
+    </div>
+    {% if entry.description %}<div class="entry-sub">{{ entry.description }}</div>{% endif %}
+    {% if entry.bullets %}<ul>{% for b in entry.bullets %}<li>{{ b }}</li>{% endfor %}</ul>{% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endmacro %}
+
+{% macro skills(cv) %}
+{% if cv.skills %}
+<div class="section">
+  <div class="section-heading">Skills</div>
+  {% for category in cv.skills %}
+  <div class="skill-line"><span class="skill-category">{{ category.category }}:</span> {{ category.skills | join(", ") }}</div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endmacro %}
+
+{% macro certifications(cv) %}
+{% if cv.certifications %}
+<div class="section">
+  <div class="section-heading">Certifications</div>
+  <ul>{% for c in cv.certifications %}<li>{{ c }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
+{% endmacro %}
+
+{% macro additional(cv) %}
+{% for section in cv.additional_sections %}
+{% if section.entries %}
+<div class="section">
+  <div class="section-heading">{{ section.title }}</div>
+  {% for entry in section.entries %}
+  <div class="entry">
+    {% if entry.heading or entry.subheading or (entry.date_range and entry.date_range.start) or entry.location %}
+    <div class="entry-header">
+      <span class="entry-title">{% if entry.heading %}{{ entry.heading }}{% endif %}{% if entry.subheading %}{% if entry.heading %} — {% endif %}{{ entry.subheading }}{% endif %}</span>
+      <span class="entry-meta">{{ _dates(entry.date_range) }}{% if entry.location %}{% if entry.date_range and entry.date_range.start %} · {% endif %}{{ entry.location }}{% endif %}</span>
+    </div>
+    {% endif %}
+    {% if entry.detail %}<div class="entry-sub">{{ entry.detail }}</div>{% endif %}
+    {% if entry.bullets %}<ul>{% for b in entry.bullets %}<li>{{ b }}</li>{% endfor %}</ul>{% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endfor %}
+{% endmacro %}
+
+{# Renders the full body in a standard order. Templates may instead call macros
+   individually if they want a different section order. #}
+{% macro body(cv) %}
+{{ header(cv) }}
+{{ summary(cv) }}
+{{ education(cv) }}
+{{ experience(cv) }}
+{{ projects(cv) }}
+{{ skills(cv) }}
+{{ certifications(cv) }}
+{{ additional(cv) }}
+{% endmacro %}

@@ -20,6 +20,15 @@ def test_project_bullets_and_tech_default_empty():
     assert entry.tech_stack == []
 
 
+def test_date_range_start_optional():
+    # The LLM commonly emits a dateless entry as date_range={"start": null};
+    # this must validate rather than failing the whole parse.
+    dr = DateRange(start=None)
+    assert dr.start is None
+    entry = ProjectEntry(name="Course Project", date_range={"start": None, "end": None})
+    assert entry.date_range.start is None
+
+
 def test_education_field_optional_with_minor_and_honors():
     entry = EducationEntry(
         institution="MIT",

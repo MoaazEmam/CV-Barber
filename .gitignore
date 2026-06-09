@@ -94,7 +94,7 @@ app/static/
 /CLAUDE.md
 .claude
 .playwright-mcp
-moaaz_emam_ahmed_def.pdf
 *.png
 *.jpeg
 uiflow
+testcvs
