@@ -52,17 +52,30 @@ class GroqClient(BaseLLMClient):
     async def complete_json(self, system_prompt: str, user_prompt: str) -> str:
         return await self._call(system_prompt, user_prompt, json_mode=True)
 
-    async def _call(self, system_prompt: str, user_prompt: str, json_mode: bool) -> str:
+    def _build_messages(self, system_prompt: str, user_prompt: str) -> list[dict]:
+        return [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
+
+    async def _call(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        json_mode: bool,
+    ) -> str:
         key = self._rotator.get_key()  # raises LLMRateLimitError / LLMAllKeysExhaustedError
         key_idx = _key_index(self._rotator, key)
-        log.info("groq_call", key_index=key_idx, json_mode=json_mode)
+        log.info(
+            "groq_call",
+            key_index=key_idx,
+            json_mode=json_mode,
+            model=self._model,
+        )
 
         kwargs: dict = {
             "model": self._model,
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
+            "messages": self._build_messages(system_prompt, user_prompt),
             "temperature": 0.1,
         }
         if json_mode:

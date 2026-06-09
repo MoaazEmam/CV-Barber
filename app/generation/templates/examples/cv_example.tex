@@ -1,0 +1,171 @@
+%==============================================================================
+%  CV Barber — EXAMPLE custom LaTeX template
+%
+%  This is a TEMPLATE, not a finished CV. The \VAR{...} and \BLOCK{...} markers
+%  are placeholders that get filled with YOUR tailored CV data on download.
+%  Edit the styling/layout however you like, but KEEP the \VAR/\BLOCK markers —
+%  a template with your own text hardcoded will produce the same PDF every time.
+%
+%  Available data (the `cv` object):
+%    cv.full_name, cv.email, cv.phone, cv.location, cv.linkedin, cv.github, cv.website
+%    cv.tailored_summary
+%    cv.experience[]  -> .title .company .location .date_range.start .date_range.end .bullets[]
+%    cv.projects[]    -> .name .description .tech_stack[] .bullets[] .url .date_range.start/.end
+%    cv.education[]   -> .institution .degree .field .minor .gpa .honors .date_range.* .relevant_courses[]
+%    cv.skills[]      -> .category .skills[]
+%    cv.certifications[]            (list of strings)
+%    cv.additional_sections[]       -> .title .entries[] (.heading .subheading .detail .bullets[])
+%
+%  Compiles with Tectonic (XeTeX). Based on Jake Gutierrez's popular resume.
+%==============================================================================
+\documentclass[letterpaper,11pt]{article}
+\usepackage[empty]{fullpage}
+\usepackage{titlesec}
+\usepackage[usenames,dvipsnames]{color}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\usepackage{fancyhdr}
+\usepackage[english]{babel}
+\usepackage{tabularx}
+\usepackage{fontawesome5}
+
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\addtolength{\oddsidemargin}{-0.5in}
+\addtolength{\textwidth}{1.0in}
+\addtolength{\topmargin}{-.5in}
+\addtolength{\textheight}{1.0in}
+\urlstyle{same}
+\raggedbottom
+\raggedright
+\setlength{\tabcolsep}{0in}
+
+\titleformat{\section}{\vspace{-4pt}\scshape\raggedright\large\bfseries}{}{0em}{}[\color{black}\titlerule \vspace{-5pt}]
+
+\newcommand{\resumeItem}[1]{\item\small{{#1 \vspace{-2pt}}}}
+\newcommand{\resumeSubheading}[4]{
+  \vspace{-2pt}\item
+    \begin{tabular*}{1.0\textwidth}[t]{l@{\extracolsep{\fill}}r}
+      \textbf{#1} & \textbf{\small #2} \\
+      \textit{\small#3} & \textit{\small #4} \\
+    \end{tabular*}\vspace{-7pt}
+}
+\newcommand{\resumeProjectHeading}[2]{
+    \item
+    \begin{tabular*}{1.001\textwidth}{l@{\extracolsep{\fill}}r}
+      \small#1 & \textbf{\small #2}\\
+    \end{tabular*}\vspace{-7pt}
+}
+\newcommand{\resumeSubHeadingListStart}{\begin{itemize}[leftmargin=0.15in, label={}]}
+\newcommand{\resumeSubHeadingListEnd}{\end{itemize}}
+\newcommand{\resumeItemListStart}{\begin{itemize}}
+\newcommand{\resumeItemListEnd}{\end{itemize}\vspace{-5pt}}
+
+\begin{document}
+
+\begin{center}
+    {\Huge \scshape \VAR{ cv.full_name }} \\ \vspace{3pt}
+    \BLOCK{ if cv.location }\small \VAR{ cv.location } \\ \vspace{2pt}\BLOCK{ endif }
+    \small
+    \BLOCK{ if cv.phone }\faPhone\ \VAR{ cv.phone } ~ \BLOCK{ endif }
+    \BLOCK{ if cv.email }\href{mailto:\VAR{ cv.email }}{\faEnvelope\ \underline{\VAR{ cv.email }}} ~ \BLOCK{ endif }
+    \BLOCK{ if cv.linkedin }\href{\VAR{ cv.linkedin }}{\faLinkedin\ \underline{LinkedIn}} ~ \BLOCK{ endif }
+    \BLOCK{ if cv.github }\href{\VAR{ cv.github }}{\faGithub\ \underline{GitHub}}\BLOCK{ endif }
+\end{center}
+
+\BLOCK{ if cv.tailored_summary }
+\section{Summary}
+\small \VAR{ cv.tailored_summary }
+\vspace{-4pt}
+\BLOCK{ endif }
+
+\BLOCK{ if cv.education }
+\section{Education}
+\resumeSubHeadingListStart
+\BLOCK{ for edu in cv.education }
+  \resumeSubheading
+    {\VAR{ edu.institution }}{\VAR{ edu.date_range.start }\BLOCK{ if edu.date_range.end } -- \VAR{ edu.date_range.end }\BLOCK{ endif }}
+    {\VAR{ edu.degree }\BLOCK{ if edu.field }, \VAR{ edu.field }\BLOCK{ endif }}{\BLOCK{ if edu.gpa }GPA: \VAR{ edu.gpa }\BLOCK{ endif }}
+  \BLOCK{ if edu.relevant_courses }
+  \resumeItemListStart
+    \resumeItem{\textbf{Relevant Coursework:} \VAR{ ", ".join(edu.relevant_courses) }}
+  \resumeItemListEnd
+  \BLOCK{ endif }
+\BLOCK{ endfor }
+\resumeSubHeadingListEnd
+\BLOCK{ endif }
+
+\BLOCK{ if cv.experience }
+\section{Experience}
+\resumeSubHeadingListStart
+\BLOCK{ for exp in cv.experience }
+  \resumeSubheading
+    {\VAR{ exp.company }}{\VAR{ exp.date_range.start }\BLOCK{ if exp.date_range.end } -- \VAR{ exp.date_range.end }\BLOCK{ endif }}
+    {\VAR{ exp.title }}{\VAR{ exp.location }}
+  \BLOCK{ if exp.bullets }
+  \resumeItemListStart
+  \BLOCK{ for b in exp.bullets }\resumeItem{\VAR{ b }}
+  \BLOCK{ endfor }
+  \resumeItemListEnd
+  \BLOCK{ endif }
+\BLOCK{ endfor }
+\resumeSubHeadingListEnd
+\BLOCK{ endif }
+
+\BLOCK{ if cv.projects }
+\section{Projects}
+\resumeSubHeadingListStart
+\BLOCK{ for proj in cv.projects }
+  \resumeProjectHeading
+    {\textbf{\VAR{ proj.name }}\BLOCK{ if proj.tech_stack } $|$ \emph{\VAR{ ", ".join(proj.tech_stack) }}\BLOCK{ endif }}{\BLOCK{ if proj.date_range and proj.date_range.start }\VAR{ proj.date_range.start }\BLOCK{ endif }}
+  \BLOCK{ if proj.bullets }
+  \resumeItemListStart
+  \BLOCK{ for b in proj.bullets }\resumeItem{\VAR{ b }}
+  \BLOCK{ endfor }
+  \resumeItemListEnd
+  \BLOCK{ endif }
+\BLOCK{ endfor }
+\resumeSubHeadingListEnd
+\BLOCK{ endif }
+
+\BLOCK{ if cv.skills }
+\section{Technical Skills}
+\begin{itemize}[leftmargin=0.15in, label={}]
+  \small{\item{
+  \BLOCK{ for cat in cv.skills }\textbf{\VAR{ cat.category }}: \VAR{ ", ".join(cat.skills) } \\
+  \BLOCK{ endfor }}}
+\end{itemize}
+\vspace{-12pt}
+\BLOCK{ endif }
+
+\BLOCK{ if cv.certifications }
+\section{Certifications}
+\begin{itemize}[leftmargin=0.15in]
+\BLOCK{ for c in cv.certifications }\item\small \VAR{ c }
+\BLOCK{ endfor }
+\end{itemize}
+\vspace{-4pt}
+\BLOCK{ endif }
+
+\BLOCK{ for sec in cv.additional_sections }\BLOCK{ if sec.entries }
+\section{\VAR{ sec.title }}
+\resumeSubHeadingListStart
+\BLOCK{ for e in sec.entries }
+\BLOCK{ if e.heading or e.subheading }
+  \resumeProjectHeading{\textbf{\VAR{ e.heading }}\BLOCK{ if e.subheading } $|$ \emph{\VAR{ e.subheading }}\BLOCK{ endif }}{}
+  \BLOCK{ if e.detail or e.bullets }
+  \resumeItemListStart
+  \BLOCK{ if e.detail }\resumeItem{\VAR{ e.detail }}\BLOCK{ endif }
+  \BLOCK{ for b in e.bullets }\resumeItem{\VAR{ b }}\BLOCK{ endfor }
+  \resumeItemListEnd
+  \BLOCK{ endif }
+\BLOCK{ else }
+  \BLOCK{ if e.detail }\item\small{\VAR{ e.detail }}\BLOCK{ endif }
+  \BLOCK{ for b in e.bullets }\item\small{\VAR{ b }}\BLOCK{ endfor }
+\BLOCK{ endif }
+\BLOCK{ endfor }
+\resumeSubHeadingListEnd
+\BLOCK{ endif }\BLOCK{ endfor }
+
+\end{document}

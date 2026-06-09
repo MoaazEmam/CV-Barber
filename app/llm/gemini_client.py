@@ -29,13 +29,17 @@ class GeminiClient(BaseLLMClient):
     async def complete_json(self, system_prompt: str, user_prompt: str) -> str:
         return await self._call(system_prompt, user_prompt, json_mode=True)
 
-    async def _call(self, system_prompt: str, user_prompt: str, json_mode: bool) -> str:
+    async def _call(
+        self, system_prompt: str, user_prompt: str, json_mode: bool
+    ) -> str:
         key = _rotator.get_key()
         log.info("gemini_call", key_index=_key_index(key), json_mode=json_mode)
         try:
             return await self._generate(key, system_prompt, user_prompt, json_mode)
         except Exception as e:
-            return await self._handle_error(e, key, system_prompt, user_prompt, json_mode)
+            return await self._handle_error(
+                e, key, system_prompt, user_prompt, json_mode
+            )
 
     async def _generate(
         self, key: str, system_prompt: str, user_prompt: str, json_mode: bool

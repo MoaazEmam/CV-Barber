@@ -65,7 +65,7 @@ class KeyRotator:
         temporarily_limited = [
             s
             for s in self._states_map.values()
-            if not s.daily_exhausted and not s.is_available()
+            if not s.daily_exhausted_at and not s.is_available()
         ]
         if temporarily_limited:
             soonest = min(s.is_exhausted_until for s in temporarily_limited)

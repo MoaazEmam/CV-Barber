@@ -17,6 +17,7 @@ export default function TailorPage() {
   const [jobDescription, setJobDescription] = useState(prefill?.jobDescription ?? '')
   const [topNExperience, setTopNExperience] = useState(prefill?.topNExperience ?? 3)
   const [topNProjects, setTopNProjects] = useState(prefill?.topNProjects ?? 3)
+  const [rewriteSummary, setRewriteSummary] = useState(true)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -34,6 +35,7 @@ export default function TailorPage() {
         job_description: jobDescription,
         top_n_experience: topNExperience,
         top_n_projects: topNProjects,
+        rewrite_summary: rewriteSummary,
       })
       const id = res.data.tailored_session_id
       setTailoredResult(id, { ...res.data, job_description: jobDescription })
@@ -137,6 +139,21 @@ export default function TailorPage() {
             />
           </div>
         </div>
+
+        <label className="flex items-start gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={rewriteSummary}
+            onChange={(e) => setRewriteSummary(e.target.checked)}
+            className="mt-0.5"
+          />
+          <span className="text-sm text-[var(--text-secondary)]">
+            Rewrite my summary for this job
+            <span className="block text-xs text-[var(--text-muted)]">
+              Experience &amp; projects are always reordered. Uncheck to keep your original summary.
+            </span>
+          </span>
+        </label>
 
         <button
           type="submit"
