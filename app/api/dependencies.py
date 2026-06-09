@@ -168,15 +168,35 @@ async def list_master_cvs(db: AsyncSession, user_id: UUID) -> list[dict]:
 # --- custom user templates ---------------------------------------------------
 
 async def create_user_template(
-    db: AsyncSession, user_id: UUID, name: str, fmt: str, source: str
+    db: AsyncSession,
+    user_id: UUID,
+    name: str,
+    fmt: str,
+    source: str,
+    source_hash: str | None = None,
 ) -> UUID:
     row = UserTemplateModel(
-        id=uuid4(), user_id=user_id, name=name, format=fmt, source=source
+        id=uuid4(), user_id=user_id, name=name, format=fmt, source=source,
+        source_hash=source_hash,
     )
     db.add(row)
     await db.commit()
     await db.refresh(row)
     return row.id
+
+
+async def get_user_template_by_hash(
+    db: AsyncSession, user_id: UUID, source_hash: str
+) -> UserTemplateModel | None:
+    """Return the user's existing template whose original upload matches this hash
+    (dedup), or None."""
+    result = await db.execute(
+        select(UserTemplateModel).where(
+            UserTemplateModel.user_id == user_id,
+            UserTemplateModel.source_hash == source_hash,
+        )
+    )
+    return result.scalar_one_or_none()
 
 
 async def list_user_templates(db: AsyncSession, user_id: UUID) -> list[UserTemplateModel]:

@@ -103,4 +103,7 @@ class UserTemplateModel(Base):
     name: Mapped[str] = mapped_column(String, nullable=False)
     format: Mapped[str] = mapped_column(String, nullable=False)  # "html" | "tex"
     source: Mapped[str] = mapped_column(Text, nullable=False)
+    # SHA-256 over the normalized *original* upload (pre-conversion) — dedup key so
+    # the same file isn't stored twice (and re-uploads skip the LLM conversion).
+    source_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

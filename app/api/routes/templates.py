@@ -9,7 +9,6 @@
 User templates are rendered ONLY in a sandbox (see render_dispatch): Jinja
 SandboxedEnvironment, WeasyPrint with a blocked url_fetcher, Tectonic --untrusted.
 """
-import re
 from uuid import UUID
 
 import structlog
@@ -24,6 +23,7 @@ from app.api.dependencies import (
     create_user_template,
     delete_user_template,
     get_user_template,
+    get_user_template_by_hash,
     list_user_templates,
 )
 from app.api.rate_limit import LLM_USER_LIMITS, limiter
@@ -39,8 +39,18 @@ MAX_TEMPLATE_BYTES = 256 * 1024
 MAX_TEMPLATES_PER_USER = 25
 _EXT_FORMAT = {".html": "html", ".htm": "html", ".tex": "tex"}
 _EXAMPLE_FILES = {"tex": "cv_example.tex", "html": "cv_example.html"}
-# A template that fills with CV data references a `cv.*` field inside a placeholder.
-_PLACEHOLDER_RE = re.compile(r"(\\VAR\{|\{\{)[^{}]*\bcv\b")
+
+_AUTO_CONVERTED_NOTE = (
+    "We noticed your file had no placeholders, so we automatically converted it "
+    "into a tailoring template. Preview it before downloading to confirm the "
+    "layout looks right."
+)
+_NO_PLACEHOLDER_WARNING = (
+    "We couldn't add placeholders to this template automatically, so it will "
+    "render the same content for every job (e.g. \\VAR{ cv.full_name } for .tex "
+    "or {{ cv.full_name }} for .html). Download the example template to see the "
+    "expected format."
+)
 
 
 class TemplateSelect(BaseModel):
@@ -76,6 +86,21 @@ async def upload_template(
         raise HTTPException(status_code=413, detail="Template too large. Maximum size is 256 KB.")
     source = data.decode("utf-8", errors="replace")
 
+    # Dedup on the *original* upload (pre-conversion): a re-upload of the same file
+    # returns the stored template immediately — no new row, no LLM conversion call.
+    from app.pipeline.dedup import text_hash
+
+    source_hash = text_hash(source)
+    duplicate = await get_user_template_by_hash(db, current_user.id, source_hash)
+    if duplicate is not None:
+        log.info("custom_template_duplicate", template_id=str(duplicate.id), fmt=fmt)
+        return {
+            "id": _custom_id(duplicate), "template_id": str(duplicate.id),
+            "name": duplicate.name, "format": duplicate.format,
+            "warning": None, "converted": False, "duplicate": True,
+            "note": "You already uploaded this template — selecting the existing one.",
+        }
+
     existing = await list_user_templates(db, current_user.id)
     if len(existing) >= MAX_TEMPLATES_PER_USER:
         raise HTTPException(
@@ -91,33 +116,79 @@ async def upload_template(
         _render_custom_tex,
         sample_tailored_cv,
     )
+    from app.llm.exceptions import LLMAllKeysExhaustedError, LLMRateLimitError, LLMValidationError
+    from app.llm.template_converter import (
+        MAX_CONVERT_CHARS,
+        PLACEHOLDER_RE,
+        TemplateConverter,
+    )
 
     renderer = _render_custom_tex if fmt == "tex" else _render_custom_html
-    try:
-        await run_in_threadpool(renderer, source, sample_tailored_cv())
-    except TemplateRenderError as e:
-        log.warning("custom_template_rejected", error=str(e), fmt=fmt)
+
+    async def _test_render(src: str) -> None:
+        """Raises TemplateRenderError if the source doesn't compile in the sandbox."""
+        await run_in_threadpool(renderer, src, sample_tailored_cv())
+
+    def _reject() -> None:
         raise HTTPException(
             status_code=422,
             detail="That template failed to render. Check the template and try again.",
         )
 
-    name = file.filename or f"template.{fmt}"
-    template_uuid = await create_user_template(db, current_user.id, name, fmt, source)
-    log.info("custom_template_saved", template_id=str(template_uuid), fmt=fmt)
+    store_source = source
+    converted = False
+    warning: str | None = None
+    note: str | None = None
 
-    # Warn (don't block) if the template has no placeholders — it'll render the same
-    # content for every job because nothing gets filled in.
-    warning = None
-    if not _PLACEHOLDER_RE.search(source):
-        warning = (
-            "This template has no placeholders (e.g. \\VAR{ cv.full_name } for .tex or "
-            "{{ cv.full_name }} for .html), so it will render the same content for every "
-            "job. Download the example template to see the expected format."
-        )
+    if PLACEHOLDER_RE.search(source):
+        # Already a real template — render as-is to validate it compiles.
+        try:
+            await _test_render(source)
+        except TemplateRenderError as e:
+            log.warning("custom_template_rejected", error=str(e), fmt=fmt)
+            _reject()
+    else:
+        # A filled-in document with no placeholders would render the same PDF for
+        # every job. Try to templatize it (LLM) so it can actually be tailored;
+        # fall back to storing the original on any failure (never lose the upload).
+        templatized: str | None = None
+        if len(source) <= MAX_CONVERT_CHARS:
+            try:
+                # `validate=_test_render` drives a compile-repair loop inside the
+                # converter: a non-compiling result is fed back to the LLM to fix.
+                templatized = await TemplateConverter().convert(
+                    source, fmt, validate=_test_render, max_repairs=1
+                )
+            except (LLMRateLimitError, LLMAllKeysExhaustedError) as e:
+                log.info("template_convert_unavailable", error=str(e), fmt=fmt)
+            except (LLMValidationError, TemplateRenderError) as e:
+                log.info("template_convert_failed", error=str(e), fmt=fmt)
+        else:
+            log.info("template_convert_skipped_too_large", chars=len(source), fmt=fmt)
+
+        if templatized is not None:
+            store_source = templatized
+            converted = True
+            note = _AUTO_CONVERTED_NOTE
+        else:
+            # Couldn't convert — store the original, but only after confirming it
+            # compiles so we never save something that won't render.
+            try:
+                await _test_render(source)
+            except TemplateRenderError as e:
+                log.warning("custom_template_rejected", error=str(e), fmt=fmt)
+                _reject()
+            warning = _NO_PLACEHOLDER_WARNING
+
+    name = file.filename or f"template.{fmt}"
+    template_uuid = await create_user_template(
+        db, current_user.id, name, fmt, store_source, source_hash=source_hash
+    )
+    log.info("custom_template_saved", template_id=str(template_uuid), fmt=fmt, converted=converted)
+
     return {
         "id": f"custom:{template_uuid}", "template_id": str(template_uuid),
-        "name": name, "format": fmt, "warning": warning,
+        "name": name, "format": fmt, "warning": warning, "note": note, "converted": converted,
     }
 
 
