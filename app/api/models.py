@@ -23,6 +23,8 @@ class TailorRequest(BaseModel):
     job_description: str
     top_n_experience: int = 3
     top_n_projects: int = 5
+    # Reordering is always applied; rewriting the summary for this job is opt-out.
+    rewrite_summary: bool = True
 
 
 class TailorResponse(BaseModel):

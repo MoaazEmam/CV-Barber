@@ -1,5 +1,6 @@
-from app.generation.docx_generator import DocxGenerator
-from app.generation.pdf_generator import PdfGenerator
-from app.generation.generator_factory import GeneratorFactory
+"""Generation package: ATS-friendly templates + unified render dispatch.
 
-__all__ = ["DocxGenerator", "PdfGenerator", "GeneratorFactory"]
+All rendering goes through :mod:`app.generation.render_dispatch` (built-in HTML
+themes via WeasyPrint, custom .tex via Tectonic, or DOCX in-place edit), with
+``section_filter`` and ``template_registry`` as supporting pieces.
+"""

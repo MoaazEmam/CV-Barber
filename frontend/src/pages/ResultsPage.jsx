@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import api from '../lib/axios'
 import useAppStore from '../store/useAppStore'
+import ConfirmDialog from '../components/ConfirmDialog'
 
 function scoreClasses(score) {
   if (score >= 7) return 'bg-emerald-500/15 text-emerald-400'
@@ -557,6 +558,210 @@ function ATSPanel({ masterCvId, applicationId, initialGeneral, initialJob }) {
   )
 }
 
+function TemplatePanel({ applicationId, onSelect }) {
+  const [options, setOptions] = useState([])
+  const [selected, setSelected] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [busy, setBusy] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [pendingDelete, setPendingDelete] = useState(null)
+  const [error, setError] = useState('')
+  const [warning, setWarning] = useState('')
+  const [note, setNote] = useState('')
+
+  const load = async (notify = true) => {
+    setLoading(true)
+    setError('')
+    try {
+      const res = await api.get(`/api/applications/${applicationId}/template-options`)
+      const opts = res.data.options || []
+      setOptions(opts)
+      setSelected(res.data.selected)
+      if (notify) onSelect?.(opts.find((o) => o.id === res.data.selected) || null)
+      return res.data
+    } catch (err) {
+      console.error('Failed to load templates', err)
+      setError('Failed to load templates')
+      return null
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const removeTemplate = async (opt) => {
+    setPendingDelete(null)
+    setDeleting(true)
+    setError('')
+    try {
+      const uuid = opt.template_id || opt.id.replace(/^custom:/, '')
+      await api.delete(`/api/templates/${uuid}`)
+      // Reload options; if the deleted template was the selected one it's now gone,
+      // so fall back to a safe default (first built-in / keep-original) and persist it.
+      const data = await load(false)
+      if (data) {
+        const opts = data.options || []
+        if (!opts.some((o) => o.id === data.selected)) {
+          const fallback = opts.find((o) => o.kind !== 'custom') || opts[0]
+          if (fallback) await choose(fallback)
+        }
+      }
+    } catch (err) {
+      console.error('Delete template failed', err)
+      setError(err.response?.data?.detail || 'Failed to delete template')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  useEffect(() => {
+    load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [applicationId])
+
+  const choose = async (opt) => {
+    if (busy || opt.id === selected) return
+    setBusy(true)
+    setError('')
+    try {
+      await api.patch(`/api/applications/${applicationId}/template`, { template_id: opt.id })
+      setSelected(opt.id)
+      onSelect?.(opt)
+    } catch (err) {
+      console.error('Set template failed', err)
+      setError(err.response?.data?.detail || 'Failed to set template')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const upload = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setBusy(true)
+    setError('')
+    setWarning('')
+    setNote('')
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await api.post('/api/templates', fd)
+      setWarning(res.data?.warning || '')
+      setNote(res.data?.note || '')
+      await load(false)
+      await choose({ id: res.data.id, name: res.data.name, output: 'pdf', kind: 'custom' })
+    } catch (err) {
+      console.error('Template upload failed', err)
+      setError(err.response?.data?.detail || 'Upload failed. Use a .html or .tex file.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const downloadExample = async (fmt) => {
+    try {
+      const res = await api.get(`/api/templates/example?format=${fmt}`, { responseType: 'blob' })
+      const url = URL.createObjectURL(res.data)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `cv_example.${fmt}`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error('Example download failed', err)
+    }
+  }
+
+  return (
+    <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-6">
+      <h2 className="text-lg font-semibold mb-1">Template</h2>
+      <p className="text-[var(--text-secondary)] text-sm mb-4">
+        Choose how your tailored CV looks — preview and download update to match.
+      </p>
+      {loading ? (
+        <div className="grid grid-cols-2 gap-2">
+          <div className="h-12 bg-[var(--surface-raised)] rounded animate-pulse" />
+          <div className="h-12 bg-[var(--surface-raised)] rounded animate-pulse" />
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {options.map((opt) => (
+              <div key={opt.id} className="relative">
+                <button
+                  onClick={() => choose(opt)}
+                  disabled={busy || deleting}
+                  className={`w-full text-left rounded-lg border px-3 py-2 transition-colors disabled:opacity-60 ${
+                    opt.kind === 'custom' ? 'pr-8' : ''
+                  } ${
+                    opt.id === selected
+                      ? 'border-[var(--accent)] bg-[var(--accent)]/10'
+                      : 'border-[var(--border)] hover:bg-[var(--surface-raised)]'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">{opt.name}</span>
+                    <span className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">
+                      {opt.output}
+                    </span>
+                  </div>
+                  {opt.description && (
+                    <p className="text-[var(--text-secondary)] text-xs mt-0.5">{opt.description}</p>
+                  )}
+                </button>
+                {opt.kind === 'custom' && (
+                  <button
+                    type="button"
+                    onClick={() => setPendingDelete(opt)}
+                    disabled={busy || deleting}
+                    title="Delete template"
+                    aria-label={`Delete ${opt.name}`}
+                    className="absolute top-1.5 right-1.5 w-5 h-5 flex items-center justify-center rounded text-[var(--text-muted)] hover:text-red-400 hover:bg-red-500/15 transition-colors disabled:opacity-60"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
+            <button
+              type="button"
+              aria-disabled="true"
+              onClick={(e) => e.preventDefault()}
+              title="Custom template uploads are coming soon — we're putting the finishing touches on them!"
+              className="inline-flex items-center gap-2 bg-[var(--surface-raised)] text-[var(--text-muted)] text-sm px-3 py-1.5 rounded-lg opacity-60 cursor-not-allowed"
+            >
+              Upload your own (coming soon)
+            </button>
+            {/* Hidden until custom template uploads are re-enabled — restore to bring back the example downloads.
+            <span className="text-xs text-[var(--text-muted)]">
+              New here? Start from an example:
+              <button onClick={() => downloadExample('tex')} className="ml-1 text-[var(--accent)] hover:underline">.tex</button>
+              <span className="mx-0.5">·</span>
+              <button onClick={() => downloadExample('html')} className="text-[var(--accent)] hover:underline">.html</button>
+            </span>
+            */}
+          </div>
+        </>
+      )}
+      {note && <p className="text-emerald-400 text-sm mt-2">{note}</p>}
+      {warning && <p className="text-amber-400 text-sm mt-2">{warning}</p>}
+      {error && <p className="text-red-400 text-sm mt-2">{error}</p>}
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title="Delete template?"
+        message={pendingDelete ? `"${pendingDelete.name}" will be removed from your templates. This can't be undone.` : ''}
+        confirmLabel="Delete"
+        onConfirm={() => removeTemplate(pendingDelete)}
+        onCancel={() => setPendingDelete(null)}
+      />
+    </div>
+  )
+}
+
 export default function ResultsPage() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -570,8 +775,10 @@ export default function ResultsPage() {
   const [hydrating, setHydrating] = useState(false)
   const [hydrateError, setHydrateError] = useState('')
   const [previewOpen, setPreviewOpen] = useState(false)
-  const [previewHtml, setPreviewHtml] = useState('')
+  const [previewPdfUrl, setPreviewPdfUrl] = useState('')
+  const [previewError, setPreviewError] = useState('')
   const [previewLoading, setPreviewLoading] = useState(false)
+  const [selectedTemplate, setSelectedTemplate] = useState(null)
   const [showFullJd, setShowFullJd] = useState(false)
   const [sectionConfig, setSectionConfig] = useState(null)
   const [effectiveMasterCvId, setEffectiveMasterCvId] = useState(masterCvId)
@@ -583,7 +790,11 @@ export default function ResultsPage() {
 
   useEffect(() => {
     setPreviewOpen(false)
-    setPreviewHtml('')
+    setPreviewError('')
+    setPreviewPdfUrl((old) => {
+      if (old) URL.revokeObjectURL(old)
+      return ''
+    })
   }, [id])
 
   useEffect(() => {
@@ -678,12 +889,12 @@ export default function ResultsPage() {
   const experiences = (r.scores || []).filter((s) => s.type === 'experience')
   const projects = (r.scores || []).filter((s) => s.type === 'project')
 
-  const downloadFile = async (format) => {
+  const downloadFile = async () => {
     try {
-      const res = await api.get(`/api/download/${id}?format=${format}`, { responseType: 'blob' })
+      const res = await api.get(`/api/download/${id}`, { responseType: 'blob' })
       const disposition = res.headers['content-disposition'] || ''
       const match = disposition.match(/filename="?([^"]+)"?/)
-      const filename = match ? match[1] : `cv.${format}`
+      const filename = match ? match[1] : 'cv'
       const url = URL.createObjectURL(res.data)
       const a = document.createElement('a')
       a.href = url
@@ -699,11 +910,28 @@ export default function ResultsPage() {
 
   const fetchPreview = async () => {
     setPreviewLoading(true)
+    setPreviewError('')
     try {
-      const res = await api.get(`/api/preview/${id}`)
-      setPreviewHtml(res.data)
+      const res = await api.get(`/api/preview/${id}`, { responseType: 'blob' })
+      const ct = res.headers['content-type'] || ''
+      if (ct.includes('application/pdf')) {
+        // Wrap in a typed Blob so the browser renders it inline in the iframe.
+        const url = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }))
+        setPreviewPdfUrl((old) => {
+          if (old) URL.revokeObjectURL(old)
+          return url
+        })
+      } else {
+        // JSON marker: preview not available (e.g. DOCX "keep original").
+        setPreviewPdfUrl((old) => {
+          if (old) URL.revokeObjectURL(old)
+          return ''
+        })
+        setPreviewError('Preview isn’t available for DOCX — download it to view.')
+      }
     } catch (err) {
       console.error('Preview failed', err)
+      setPreviewError('Failed to load preview.')
     } finally {
       setPreviewLoading(false)
     }
@@ -712,12 +940,27 @@ export default function ResultsPage() {
   const togglePreview = async () => {
     if (previewOpen) { setPreviewOpen(false); return }
     setPreviewOpen(true)
+    if (selectedTemplate?.output === 'docx') {
+      setPreviewPdfUrl('')
+      setPreviewError('Preview isn’t available for DOCX — download it to view.')
+      return
+    }
     await fetchPreview()
   }
 
+  const handleTemplateSelected = async (opt) => {
+    setSelectedTemplate(opt)
+    if (!previewOpen) return
+    if (opt?.output === 'docx') {
+      setPreviewPdfUrl('')
+      setPreviewError('Preview isn’t available for DOCX — download it to view.')
+    } else {
+      await fetchPreview()
+    }
+  }
+
   const handleSectionsSaved = async () => {
-    if (previewOpen) await fetchPreview()
-    else setPreviewHtml('')
+    if (previewOpen && selectedTemplate?.output !== 'docx') await fetchPreview()
   }
 
   const tailorAnother = () => {
@@ -840,18 +1083,14 @@ export default function ResultsPage() {
         onSaved={handleSectionsSaved}
       />
 
+      <TemplatePanel applicationId={id} onSelect={handleTemplateSelected} />
+
       <div className="flex flex-wrap gap-3">
         <button
-          onClick={() => downloadFile('docx')}
+          onClick={downloadFile}
           className="bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-medium px-4 py-2 rounded-lg transition-colors"
         >
-          Download DOCX
-        </button>
-        <button
-          onClick={() => downloadFile('pdf')}
-          className="bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-medium px-4 py-2 rounded-lg transition-colors"
-        >
-          Download PDF
+          {selectedTemplate?.output ? `Download ${selectedTemplate.output.toUpperCase()}` : 'Download'}
         </button>
         <button
           onClick={togglePreview}
@@ -877,13 +1116,17 @@ export default function ResultsPage() {
         <div className="bg-white rounded-xl overflow-hidden border border-[var(--border)]">
           {previewLoading ? (
             <div className="p-6 text-slate-700">Loading preview...</div>
-          ) : (
+          ) : previewError ? (
+            <div className="p-6 text-slate-700">{previewError}</div>
+          ) : previewPdfUrl ? (
             <iframe
               title="CV Preview"
-              srcDoc={previewHtml}
+              src={previewPdfUrl}
               className="w-full"
               style={{ height: '800px', border: 'none' }}
             />
+          ) : (
+            <div className="p-6 text-slate-700">No preview available.</div>
           )}
         </div>
       )}

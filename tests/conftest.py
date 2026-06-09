@@ -3,12 +3,30 @@ import uuid
 import pytest
 import pytest_asyncio
 from fastapi_users.password import PasswordHelper
+from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 
 from app.db.base import Base
 from app.db.models import User
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+
+
+# The models use Postgres JSONB; SQLite (test DB) has no JSONB type. Render it as
+# JSON so Base.metadata.create_all works against SQLite — test-only, production
+# still uses real JSONB.
+@compiles(JSONB, "sqlite")
+def _compile_jsonb_sqlite(element, compiler, **kw):  # noqa: ANN001
+    return "JSON"
+
+
+# Postgres UUID compiles to a bare "UUID" DDL type on SQLite, which gets NUMERIC
+# affinity — an all-digit UUID then round-trips back as an int and breaks the
+# result processor. CHAR(32) gives TEXT affinity so the hex value stays a string.
+@compiles(UUID, "sqlite")
+def _compile_uuid_sqlite(element, compiler, **kw):  # noqa: ANN001
+    return "CHAR(32)"
 
 
 @pytest_asyncio.fixture

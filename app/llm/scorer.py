@@ -57,7 +57,15 @@ class CVScorer:
         try:
             raw_response = await self._client.complete_json(system_prompt, user_prompt)
             data = json.loads(raw_response)
-            return TailoredCV(**data)
+            tailored = TailoredCV(**data)
+            # Extra sections aren't scored/tailored in v1 — carry them through from
+            # the master CV verbatim so a template that supports them can render them.
+            tailored.additional_sections = master_cv.additional_sections
+            # Reordering is mandatory; the summary rewrite is optional. When off,
+            # keep the user's original summary verbatim.
+            if not config.rewrite_summary:
+                tailored.tailored_summary = master_cv.summary
+            return tailored
         except (LLMRateLimitError, LLMAllKeysExhaustedError):
             raise
         except json.JSONDecodeError as e:
