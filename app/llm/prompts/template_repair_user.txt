@@ -1,0 +1,25 @@
+Format: {format}
+
+Your previous conversion of the user's {format} CV template FAILED to compile. Fix it and return ONLY the corrected template source (no explanation, no code fences).
+
+Compiler error:
+<<<ERROR_START>>>
+{error}
+<<<ERROR_END>>>
+
+Your previous (broken) output:
+<<<BROKEN_START>>>
+{broken}
+<<<BROKEN_END>>>
+
+Likely causes to check, in order:
+- An `itemize` / `\resumeItemListStart`...`End` list left EMPTY (the classic "perhaps a missing \item" error). Guard each list with `\BLOCK{ if <the list> }`...`\BLOCK{ endif }` so it only opens when the loop emits items.
+- A `\item` / `\resumeItem` placed OUTSIDE its list environment.
+- An unbalanced `\BLOCK{ for }`/`\BLOCK{ if }` (missing `endfor`/`endif`) or a stray/unbalanced brace.
+
+Keep ALL `cv.*` placeholders and the user's styling/layout; change only what is needed to make it compile. Return only the corrected template source.
+
+For reference, the original document the template was built from:
+<<<TEMPLATE_START>>>
+{source}
+<<<TEMPLATE_END>>>
