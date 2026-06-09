@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import api from '../lib/axios'
 import useAppStore from '../store/useAppStore'
+import ConfirmDialog from '../components/ConfirmDialog'
 
 function scoreClasses(score) {
   if (score >= 7) return 'bg-emerald-500/15 text-emerald-400'
@@ -562,8 +563,11 @@ function TemplatePanel({ applicationId, onSelect }) {
   const [selected, setSelected] = useState('')
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [pendingDelete, setPendingDelete] = useState(null)
   const [error, setError] = useState('')
   const [warning, setWarning] = useState('')
+  const [note, setNote] = useState('')
 
   const load = async (notify = true) => {
     setLoading(true)
@@ -574,11 +578,38 @@ function TemplatePanel({ applicationId, onSelect }) {
       setOptions(opts)
       setSelected(res.data.selected)
       if (notify) onSelect?.(opts.find((o) => o.id === res.data.selected) || null)
+      return res.data
     } catch (err) {
       console.error('Failed to load templates', err)
       setError('Failed to load templates')
+      return null
     } finally {
       setLoading(false)
+    }
+  }
+
+  const removeTemplate = async (opt) => {
+    setPendingDelete(null)
+    setDeleting(true)
+    setError('')
+    try {
+      const uuid = opt.template_id || opt.id.replace(/^custom:/, '')
+      await api.delete(`/api/templates/${uuid}`)
+      // Reload options; if the deleted template was the selected one it's now gone,
+      // so fall back to a safe default (first built-in / keep-original) and persist it.
+      const data = await load(false)
+      if (data) {
+        const opts = data.options || []
+        if (!opts.some((o) => o.id === data.selected)) {
+          const fallback = opts.find((o) => o.kind !== 'custom') || opts[0]
+          if (fallback) await choose(fallback)
+        }
+      }
+    } catch (err) {
+      console.error('Delete template failed', err)
+      setError(err.response?.data?.detail || 'Failed to delete template')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -610,11 +641,13 @@ function TemplatePanel({ applicationId, onSelect }) {
     setBusy(true)
     setError('')
     setWarning('')
+    setNote('')
     try {
       const fd = new FormData()
       fd.append('file', file)
       const res = await api.post('/api/templates', fd)
       setWarning(res.data?.warning || '')
+      setNote(res.data?.note || '')
       await load(false)
       await choose({ id: res.data.id, name: res.data.name, output: 'pdf', kind: 'custom' })
     } catch (err) {
@@ -656,50 +689,75 @@ function TemplatePanel({ applicationId, onSelect }) {
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {options.map((opt) => (
-              <button
-                key={opt.id}
-                onClick={() => choose(opt)}
-                disabled={busy}
-                className={`text-left rounded-lg border px-3 py-2 transition-colors disabled:opacity-60 ${
-                  opt.id === selected
-                    ? 'border-[var(--accent)] bg-[var(--accent)]/10'
-                    : 'border-[var(--border)] hover:bg-[var(--surface-raised)]'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">{opt.name}</span>
-                  <span className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">
-                    {opt.output}
-                  </span>
-                </div>
-                {opt.description && (
-                  <p className="text-[var(--text-secondary)] text-xs mt-0.5">{opt.description}</p>
+              <div key={opt.id} className="relative">
+                <button
+                  onClick={() => choose(opt)}
+                  disabled={busy || deleting}
+                  className={`w-full text-left rounded-lg border px-3 py-2 transition-colors disabled:opacity-60 ${
+                    opt.kind === 'custom' ? 'pr-8' : ''
+                  } ${
+                    opt.id === selected
+                      ? 'border-[var(--accent)] bg-[var(--accent)]/10'
+                      : 'border-[var(--border)] hover:bg-[var(--surface-raised)]'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">{opt.name}</span>
+                    <span className="text-[10px] uppercase tracking-wide text-[var(--text-muted)]">
+                      {opt.output}
+                    </span>
+                  </div>
+                  {opt.description && (
+                    <p className="text-[var(--text-secondary)] text-xs mt-0.5">{opt.description}</p>
+                  )}
+                </button>
+                {opt.kind === 'custom' && (
+                  <button
+                    type="button"
+                    onClick={() => setPendingDelete(opt)}
+                    disabled={busy || deleting}
+                    title="Delete template"
+                    aria-label={`Delete ${opt.name}`}
+                    className="absolute top-1.5 right-1.5 w-5 h-5 flex items-center justify-center rounded text-[var(--text-muted)] hover:text-red-400 hover:bg-red-500/15 transition-colors disabled:opacity-60"
+                  >
+                    ×
+                  </button>
                 )}
-              </button>
+              </div>
             ))}
           </div>
           <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
-            <label className="inline-flex items-center gap-2 cursor-pointer bg-[var(--surface-raised)] hover:bg-[rgba(255,255,255,0.08)] text-[var(--text-secondary)] text-sm px-3 py-1.5 rounded-lg transition-colors">
-              <input
-                type="file"
-                accept=".html,.htm,.tex"
-                onChange={upload}
-                disabled={busy}
-                className="hidden"
-              />
-              {busy ? 'Working...' : 'Upload your own (.tex / .html)'}
-            </label>
+            <button
+              type="button"
+              aria-disabled="true"
+              onClick={(e) => e.preventDefault()}
+              title="Custom template uploads are coming soon — we're putting the finishing touches on them!"
+              className="inline-flex items-center gap-2 bg-[var(--surface-raised)] text-[var(--text-muted)] text-sm px-3 py-1.5 rounded-lg opacity-60 cursor-not-allowed"
+            >
+              Upload your own (coming soon)
+            </button>
+            {/* Hidden until custom template uploads are re-enabled — restore to bring back the example downloads.
             <span className="text-xs text-[var(--text-muted)]">
               New here? Start from an example:
               <button onClick={() => downloadExample('tex')} className="ml-1 text-[var(--accent)] hover:underline">.tex</button>
               <span className="mx-0.5">·</span>
               <button onClick={() => downloadExample('html')} className="text-[var(--accent)] hover:underline">.html</button>
             </span>
+            */}
           </div>
         </>
       )}
+      {note && <p className="text-emerald-400 text-sm mt-2">{note}</p>}
       {warning && <p className="text-amber-400 text-sm mt-2">{warning}</p>}
       {error && <p className="text-red-400 text-sm mt-2">{error}</p>}
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title="Delete template?"
+        message={pendingDelete ? `"${pendingDelete.name}" will be removed from your templates. This can't be undone.` : ''}
+        confirmLabel="Delete"
+        onConfirm={() => removeTemplate(pendingDelete)}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   )
 }
