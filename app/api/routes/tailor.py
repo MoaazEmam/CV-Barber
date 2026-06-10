@@ -105,11 +105,12 @@ async def tailor_cv(
     # Auto-trigger job ATS score as a background task with a fresh DB session.
     async def _run_job_ats(app_id: UUID, tailored_dump: dict, job_description: str):
         from app.llm.ats_scorer import ATSScorer
+        from app.llm.client_factory import LLMClientFactory
         from app.schemas.tailored_cv import TailoredCV as _TailoredCV
 
         try:
             tailored = _TailoredCV.model_validate(tailored_dump)
-            scorer_bg = ATSScorer()
+            scorer_bg = ATSScorer(client=LLMClientFactory.create("background"))
             ats_result = await scorer_bg.score_job(tailored, job_description)
         except Exception as e:
             log.warning("auto_job_ats_failed", error=str(e))
