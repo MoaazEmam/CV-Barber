@@ -32,8 +32,12 @@ class GroqClient(BaseLLMClient):
     per-minute rate limits and daily quota exhaustion identically to GeminiClient.
     """
 
-    def __init__(self, api_keys: list[str], model: str):
-        self._rotator = KeyRotator(api_keys)
+    def __init__(
+        self, api_keys: list[str], model: str, rotator: KeyRotator | None = None
+    ):
+        # An externally supplied rotator lets multiple clients (e.g. the big and
+        # small Groq models) share rate-limit state — limits are per account.
+        self._rotator = rotator or KeyRotator(api_keys)
         self._model = model
         # Cache one AsyncGroq client per key to reuse the underlying httpx connection pool.
         self._clients: dict[str, AsyncGroq] = {

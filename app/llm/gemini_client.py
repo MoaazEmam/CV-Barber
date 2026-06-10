@@ -7,21 +7,27 @@ from google.genai import types
 from app.config import settings as default_settings
 from app.llm.base_client import BaseLLMClient
 from app.llm.exceptions import LLMRateLimitError
-from app.llm.key_rotator import _rotator
+from app.llm.key_rotator import KeyRotator
 
 log = structlog.get_logger()
 
 
-def _key_index(key: str) -> int:
+def _key_index(rotator: KeyRotator, key: str) -> int:
     try:
-        return list(_rotator._states_map.keys()).index(key)
+        return list(rotator._states_map.keys()).index(key)
     except ValueError:
         return -1
 
 
 class GeminiClient(BaseLLMClient):
-    def __init__(self):
+    def __init__(
+        self,
+        api_keys: list[str] | None = None,
+        rotator: KeyRotator | None = None,
+    ):
         self._model = default_settings.gemini_model
+        keys = api_keys or default_settings.get_all_gemini_keys()
+        self._rotator = rotator or KeyRotator(keys)
 
     async def complete(self, system_prompt: str, user_prompt: str) -> str:
         return await self._call(system_prompt, user_prompt, json_mode=False)
@@ -32,8 +38,12 @@ class GeminiClient(BaseLLMClient):
     async def _call(
         self, system_prompt: str, user_prompt: str, json_mode: bool
     ) -> str:
-        key = _rotator.get_key()
-        log.info("gemini_call", key_index=_key_index(key), json_mode=json_mode)
+        key = self._rotator.get_key()
+        log.info(
+            "gemini_call",
+            key_index=_key_index(self._rotator, key),
+            json_mode=json_mode,
+        )
         try:
             return await self._generate(key, system_prompt, user_prompt, json_mode)
         except Exception as e:
@@ -72,24 +82,25 @@ class GeminiClient(BaseLLMClient):
         json_mode: bool,
     ) -> str:
         error_str = str(e)
+        key_idx = _key_index(self._rotator, key)
         # Upstream transient errors (503 model overloaded, 500, 502, 504) → surface as rate-limit
         # so the API layer returns a clean 429 with a retry hint rather than a raw 500.
         if any(code in error_str for code in ("503", "502", "504", "UNAVAILABLE")):
-            log.warning("gemini_upstream_unavailable", key_index=_key_index(key))
+            log.warning("gemini_upstream_unavailable", key_index=key_idx)
             raise LLMRateLimitError(retry_after_seconds=30) from e
         if "429" not in error_str:
             raise
         if "GenerateRequestsPerDay" in error_str or "per_day" in error_str.lower():
-            log.warning("gemini_key_daily_exhausted", key_index=_key_index(key))
-            _rotator.mark_daily_exhausted(key)
+            log.warning("gemini_key_daily_exhausted", key_index=key_idx)
+            self._rotator.mark_daily_exhausted(key)
         else:
             retry_after = self._parse_retry_after(error_str)
             log.warning(
                 "gemini_key_rate_limited",
-                key_index=_key_index(key),
+                key_index=key_idx,
                 retry_after=retry_after,
             )
-            _rotator.mark_rate_limited(key, retry_after)
+            self._rotator.mark_rate_limited(key, retry_after)
 
         return await self._call(system_prompt, user_prompt, json_mode)
 
