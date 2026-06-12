@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -100,3 +100,69 @@ class MasterCVListItem(BaseModel):
 
 class MasterCVListResponse(BaseModel):
     master_cvs: list[MasterCVListItem]
+
+
+# --- Feedback ---
+
+FeedbackType = Literal["suggestion", "bug", "other"]
+FeedbackStatus = Literal["open", "resolved"]
+
+
+class FeedbackCreate(BaseModel):
+    type: FeedbackType
+    message: str = Field(min_length=3, max_length=5000)
+    page_context: str | None = Field(default=None, max_length=200)
+
+
+class FeedbackRead(BaseModel):
+    id: UUID
+    type: FeedbackType
+    message: str
+    page_context: str | None
+    status: FeedbackStatus
+    created_at: datetime
+
+
+class AdminFeedbackRead(FeedbackRead):
+    user_email: str
+    username: str | None
+
+
+class FeedbackStatusUpdate(BaseModel):
+    status: FeedbackStatus
+
+
+# --- Admin metrics ---
+
+class DayCount(BaseModel):
+    date: str  # ISO date "YYYY-MM-DD"
+    count: int
+
+
+class HourCount(BaseModel):
+    hour: int  # 0-23
+    count: int
+
+
+class LabelCount(BaseModel):
+    label: str
+    count: int
+
+
+class AdminMetrics(BaseModel):
+    total_users: int
+    verified_users: int
+    unverified_users: int
+    active_users_7d: int
+    active_users_30d: int
+    total_master_cvs: int
+    total_applications: int
+    cover_letters_generated: int
+    custom_templates: int
+    qa_sets: int
+    avg_applications_per_user: float
+    open_feedback_count: int
+    signups_per_day: list[DayCount]
+    activity_per_day: list[DayCount]
+    peak_hours: list[HourCount]
+    template_popularity: list[LabelCount]

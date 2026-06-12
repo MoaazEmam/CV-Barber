@@ -30,9 +30,13 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from app.config import settings
+
 # Per-user limits for the LLM-backed endpoints (generous anti-abuse guardrail —
 # the real ceiling is the shared provider token pool, surfaced to users as 429).
-LLM_USER_LIMITS = "30/hour;80/day"
+# Configurable via LLM_USER_RATE_LIMITS; the per-minute window stops burst
+# scripts from torching the shared token budget.
+LLM_USER_LIMITS = settings.llm_user_rate_limits
 
 # Auth brute-force guard. AUTH_MAX_REQUESTS is the number of *failed* attempts
 # tolerated per IP within the window; successful logins are not counted (see

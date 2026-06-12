@@ -58,6 +58,10 @@ class Settings(BaseSettings):
     # True they may also use the HTML/.tex templates (DOCX -> PDF). "Keep original"
     # stays the default for DOCX either way.
     allow_docx_to_pdf: bool = Field(default=True)
+    # Per-user limits on LLM-backed endpoints (SlowAPI multi-limit string).
+    # The per-minute window is the real abuse guard; the hourly/daily caps keep
+    # one user under ~1/3 of the conservative global free-tier capacity.
+    llm_user_rate_limits: str = Field(default="10/minute;60/hour;250/day")
     top_n_projects: int = Field(default=3)
     top_n_experience: int = Field(default=3)
     # Transactional email (Brevo REST API). When brevo_api_key is unset, emails

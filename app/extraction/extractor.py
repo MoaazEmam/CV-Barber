@@ -3,17 +3,19 @@ import os
 from pathlib import Path
 from app.extraction.pdf import PdfExtractor
 from app.extraction.docx_ import DocxExtractor
+from app.extraction.odt_ import OdtExtractor
 
-SUPPORTED_EXTENSIONS = {".pdf", ".docx"}
+SUPPORTED_EXTENSIONS = {".pdf", ".docx", ".odt"}
 
 class TextExtractor:
     def __init__(self):
         self.pdf_extractor=PdfExtractor()
         self.docx_extractor=DocxExtractor()
+        self.odt_extractor=OdtExtractor()
     def extract_cv_text(self,path:str):
         """
         Extract raw text from a CV file at the given path.
-        Supports PDF and DOCX.
+        Supports PDF, DOCX and ODT.
         """
         suffix = Path(path).suffix.lower()
 
@@ -27,6 +29,8 @@ class TextExtractor:
             return self.pdf_extractor.extract_text(path)
         elif suffix == ".docx":
             return self.docx_extractor.extract_text(path)
+        elif suffix == ".odt":
+            return self.odt_extractor.extract_text(path)
         else:
             return None
 

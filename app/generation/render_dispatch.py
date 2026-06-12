@@ -56,8 +56,9 @@ class TemplateRenderError(RuntimeError):
 # --- gate: which choices are allowed for an input format --------------------
 
 def pdf_templates_allowed(input_format: str) -> bool:
-    """PDF inputs may always use PDF templates; DOCX inputs only if the gate is on."""
-    return input_format == "pdf" or settings.allow_docx_to_pdf
+    """Non-DOCX inputs (PDF, ODT) may always use PDF templates — they have no
+    in-place edit path; DOCX inputs only if the gate is on."""
+    return input_format != "docx" or settings.allow_docx_to_pdf
 
 
 def is_choice_allowed(template_id: str, input_format: str) -> bool:

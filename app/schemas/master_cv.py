@@ -8,6 +8,8 @@ from app.schemas.cv_blocks import (
     ProjectEntry,
     SkillCategory,
     coerce_additional_sections,
+    coerce_certifications,
+    coerce_skills,
 )
 
 
@@ -31,3 +33,8 @@ class MasterCV(BaseCV):
     @classmethod
     def _coerce_additional_sections(cls, v):
         return coerce_additional_sections(v)
+
+    _coerce_skills = field_validator("skills", mode="before")(coerce_skills)
+    _coerce_certifications = field_validator("certifications", mode="before")(
+        coerce_certifications
+    )

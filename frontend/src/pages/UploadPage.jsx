@@ -4,7 +4,7 @@ import api from '../lib/axios'
 import useAppStore from '../store/useAppStore'
 import ConfirmDialog from '../components/ConfirmDialog'
 
-const ACCEPTED = ['.pdf', '.docx']
+const ACCEPTED = ['.pdf', '.docx', '.odt']
 
 function formatSize(bytes) {
   if (bytes < 1024) return `${bytes} B`
@@ -128,7 +128,7 @@ export default function UploadPage() {
     if (!f) return
     const ext = '.' + f.name.split('.').pop().toLowerCase()
     if (!ACCEPTED.includes(ext)) {
-      setError('Only PDF and DOCX files are supported.')
+      setError('Only PDF, DOCX and ODT files are supported.')
       return
     }
     setError('')
@@ -250,13 +250,13 @@ export default function UploadPage() {
         <input
           ref={inputRef}
           type="file"
-          accept=".pdf,.docx"
+          accept=".pdf,.docx,.odt"
           hidden
           onChange={(e) => pickFile(e.target.files[0])}
         />
       </div>
 
-      <p className="text-xs text-[var(--text-muted)] text-center -mt-1">.pdf and .docx supported</p>
+      <p className="text-xs text-[var(--text-muted)] text-center -mt-1">.pdf, .docx and .odt supported</p>
 
       <button
         onClick={onParse}

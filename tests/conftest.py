@@ -57,3 +57,20 @@ async def test_user(db_session):
     db_session.add(user)
     await db_session.commit()
     return user
+
+
+@pytest_asyncio.fixture
+async def superuser(db_session):
+    password_helper = PasswordHelper()
+    user = User(
+        id=uuid.UUID("00000000-0000-0000-0000-000000000002"),
+        email="admin@cvbarber.dev",
+        username="adminuser",
+        hashed_password=password_helper.hash("adminpassword"),
+        is_active=True,
+        is_superuser=True,
+        is_verified=True,
+    )
+    db_session.add(user)
+    await db_session.commit()
+    return user

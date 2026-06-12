@@ -12,7 +12,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.api.rate_limit import AuthRateLimitMiddleware, limiter
-from app.api.routes import auth_refresh, ats, cover_letter, history, master_cvs, parse, preview, qa, structure, tailor, templates, verification
+from app.api.routes import admin, auth_refresh, ats, cover_letter, feedback, history, master_cvs, parse, preview, qa, structure, tailor, templates, verification
 from app.auth.config import (
     auth_backend,
     fastapi_users,
@@ -136,6 +136,8 @@ def create_app() -> FastAPI:
     app.include_router(master_cvs.router, prefix="/api")
     app.include_router(cover_letter.router, prefix="/api")
     app.include_router(templates.router, prefix="/api")
+    app.include_router(feedback.router, prefix="/api")
+    app.include_router(admin.router, prefix="/api")
 
     @app.get("/api/health")
     async def health():

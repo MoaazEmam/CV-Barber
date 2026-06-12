@@ -2,6 +2,7 @@ import { Link, Outlet, useNavigate } from 'react-router-dom'
 import useAppStore from '../store/useAppStore'
 import api from '../lib/axios'
 import VerifyEmailModal from './VerifyEmailModal'
+import FeedbackWidget from './FeedbackWidget'
 
 export default function Layout() {
   const navigate = useNavigate()
@@ -28,6 +29,14 @@ export default function Layout() {
           </Link>
 
           <div className="flex items-center gap-6">
+            {token && user?.is_superuser && (
+              <Link
+                to="/admin"
+                className="text-sm text-[var(--text-secondary)] hover:text-white transition-colors"
+              >
+                Admin
+              </Link>
+            )}
             {token && (
               <Link
                 to="/history"
@@ -58,6 +67,7 @@ export default function Layout() {
       {/* key by user id so the modal's local state (typed code, "sent" step)
           resets when a different account signs in within the same tab */}
       {user && <VerifyEmailModal key={user.id} />}
+      {token && user && <FeedbackWidget />}
     </div>
   )
 }

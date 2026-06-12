@@ -14,7 +14,16 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 import OAuthCallbackPage from './pages/OAuthCallbackPage'
 import ChooseUsernamePage from './pages/ChooseUsernamePage'
+import AdminPage from './pages/AdminPage'
 import useAppStore from './store/useAppStore'
+
+// Client-side gate only (cosmetic): the real enforcement is the 403 the
+// backend returns to non-superusers on every /api/admin/* endpoint.
+function AdminRoute({ children }) {
+  const user = useAppStore((s) => s.user)
+  if (user && !user.is_superuser) return <Navigate to="/" replace />
+  return <ProtectedRoute>{children}</ProtectedRoute>
+}
 
 export default function App() {
   useEffect(() => {
@@ -56,6 +65,9 @@ export default function App() {
           } />
           <Route path="/history" element={
             <ProtectedRoute><HistoryPage /></ProtectedRoute>
+          } />
+          <Route path="/admin" element={
+            <AdminRoute><AdminPage /></AdminRoute>
           } />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
