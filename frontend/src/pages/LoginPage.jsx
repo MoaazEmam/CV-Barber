@@ -1,12 +1,15 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import api from '../lib/axios'
 import { authErrorMessage } from '../lib/authErrors'
 import useAppStore from '../store/useAppStore'
 import PasswordInput from '../components/PasswordInput'
+import GoogleButton from '../components/GoogleButton'
 
 export default function LoginPage() {
   const navigate = useNavigate()
+  // e.g. "Password updated" notice after a successful reset.
+  const notice = useLocation().state?.notice
   const setAuth = useAppStore((s) => s.setAuth)
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
@@ -57,6 +60,7 @@ export default function LoginPage() {
         <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-8">
           <h1 className="text-2xl font-bold tracking-tight">Welcome back</h1>
           <p className="text-[var(--text-secondary)] text-sm mt-1">Sign in to your account</p>
+          {notice && <p className="text-green-400 text-sm mt-3">{notice}</p>}
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-4">
             <div>
@@ -76,6 +80,14 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="current-password"
             />
+            <p className="text-right -mt-2">
+              <Link
+                to="/forgot-password"
+                className="text-sm text-[var(--text-muted)] hover:text-[var(--accent)] transition-colors"
+              >
+                Forgot password?
+              </Link>
+            </p>
 
             <button
               type="submit"
@@ -87,6 +99,13 @@ export default function LoginPage() {
 
             {error && <p className="text-red-400 text-sm">{error}</p>}
           </form>
+
+          <div className="flex items-center gap-3 my-5">
+            <div className="flex-1 h-px bg-[var(--border)]" />
+            <span className="text-xs text-[var(--text-muted)]">or</span>
+            <div className="flex-1 h-px bg-[var(--border)]" />
+          </div>
+          <GoogleButton onError={setError} />
 
           <p className="text-sm text-[var(--text-muted)] mt-6 text-center">
             Don't have an account?{' '}

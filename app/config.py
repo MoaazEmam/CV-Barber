@@ -60,6 +60,18 @@ class Settings(BaseSettings):
     allow_docx_to_pdf: bool = Field(default=True)
     top_n_projects: int = Field(default=3)
     top_n_experience: int = Field(default=3)
+    # Transactional email (Brevo REST API). When brevo_api_key is unset, emails
+    # are not sent; outside production the verification code is logged instead.
+    brevo_api_key: str | None = Field(default=None)
+    mail_from: str = Field(default="no-reply@example.com")
+    mail_from_name: str = Field(default="CV Barber")
+
+    # Google OAuth (login enabled only when both id and secret are set).
+    google_oauth_client_id: str | None = Field(default=None)
+    google_oauth_client_secret: str | None = Field(default=None)
+    # Public origin of the app; builds the OAuth redirect URL and SPA redirects.
+    app_base_url: str = Field(default="http://localhost:8000")
+
     api_host: str = Field(default="0.0.0.0")
     api_port: int = Field(default=8000)
     env: str = Field(default="development")

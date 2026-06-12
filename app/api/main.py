@@ -12,8 +12,13 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.api.rate_limit import AuthRateLimitMiddleware, limiter
-from app.api.routes import auth_refresh, ats, cover_letter, history, master_cvs, parse, preview, qa, structure, tailor, templates
-from app.auth.config import auth_backend, fastapi_users
+from app.api.routes import auth_refresh, ats, cover_letter, history, master_cvs, parse, preview, qa, structure, tailor, templates, verification
+from app.auth.config import (
+    auth_backend,
+    fastapi_users,
+    google_oauth_client,
+    oauth_redirect_backend,
+)
 from app.auth.schemas import UserCreate, UserRead, UserUpdate
 from app.config import settings
 from app.logging_config import configure_logging
@@ -88,13 +93,37 @@ def create_app() -> FastAPI:
         prefix="/auth",
         tags=["auth"],
     )
+    # Forgot/reset password (/auth/forgot-password, /auth/reset-password).
+    # Emails a reset link; works for Google-created accounts too (they get to
+    # set a password for the first time this way).
+    app.include_router(
+        fastapi_users.get_reset_password_router(),
+        prefix="/auth",
+        tags=["auth"],
+    )
     app.include_router(
         fastapi_users.get_users_router(UserRead, UserUpdate),
         prefix="/users",
         tags=["users"],
     )
-    # Refresh-token endpoints (/auth/login, /auth/refresh, /auth/logout).
+    # Refresh-token endpoints (/auth/login, /auth/refresh, /auth/logout, /auth/cookie).
     app.include_router(auth_refresh.router, tags=["auth"])
+    # Email verification (/auth/request-verify-code, /auth/verify-code).
+    app.include_router(verification.router, tags=["auth"])
+    # Google OAuth login — only mounted when credentials are configured.
+    if google_oauth_client is not None:
+        app.include_router(
+            fastapi_users.get_oauth_router(
+                google_oauth_client,
+                oauth_redirect_backend,
+                settings.secret_key,
+                redirect_url=f"{settings.app_base_url}/auth/google/callback",
+                associate_by_email=True,
+                is_verified_by_default=True,
+            ),
+            prefix="/auth/google",
+            tags=["auth"],
+        )
 
     # API routes
     app.include_router(parse.router, prefix="/api")

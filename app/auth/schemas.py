@@ -3,7 +3,8 @@ from fastapi_users import schemas
 
 
 class UserRead(schemas.BaseUser[uuid.UUID]):
-    username: str
+    # None for Google-OAuth users who haven't picked a username yet.
+    username: str | None
 
 
 class UserCreate(schemas.BaseUserCreate):
