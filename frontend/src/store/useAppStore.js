@@ -6,9 +6,19 @@ const useAppStore = create((set) => ({
   token: null,
   authReady: false,
   setAuth: (user, token) => set({ user, token }),
+  setUser: (user) => set({ user }),
   setToken: (token) => set({ token }),
   setAuthReady: (v) => set({ authReady: v }),
-  clearAuth: () => set({ user: null, token: null }),
+  // Clears everything account-scoped, not just credentials — otherwise the
+  // next account to sign in (same tab) sees the previous account's CV state.
+  clearAuth: () => set({
+    user: null,
+    token: null,
+    masterCvId: null,
+    masterCvMeta: null,
+    currentApplicationId: null,
+    tailoredResult: null,
+  }),
 
   // CV parsing
   masterCvId: null,

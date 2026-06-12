@@ -24,6 +24,30 @@ class Settings(BaseSettings):
     ollama_base_url: str = Field(default="http://localhost:11434")
     ollama_model: str = Field(default="llama3.1")
 
+    # Smaller Groq model used by the background chain (shares Groq keys/quota).
+    groq_small_model: str = Field(default="llama-3.1-8b-instant")
+
+    # OpenAI-compatible providers (all optional; a provider joins the fallback
+    # chain only when its keys are configured — see app/llm/client_factory.py).
+    cerebras_api_keys: str | None = Field(default=None)
+    cerebras_model: str = Field(default="gpt-oss-120b")
+    nvidia_api_keys: str | None = Field(default=None)
+    nvidia_model: str = Field(default="nvidia/llama-3.3-nemotron-super-49b-v1")
+    mistral_api_keys: str | None = Field(default=None)
+    mistral_model: str = Field(default="mistral-large-latest")
+    openrouter_api_keys: str | None = Field(default=None)
+    openrouter_model: str = Field(default="meta-llama/llama-3.3-70b-instruct:free")
+    # LLM7 works without a key, so its presence in the chain is opt-in.
+    llm7_enabled: bool = Field(default=False)
+    llm7_api_keys: str | None = Field(default=None)
+    llm7_model: str = Field(default="deepseek-r1-0528")
+    zai_api_keys: str | None = Field(default=None)
+    zai_model: str = Field(default="glm-4.5-flash")
+
+    # Optional comma-separated ordering overrides for the fallback chains.
+    llm_interactive_chain: str | None = Field(default=None)
+    llm_background_chain: str | None = Field(default=None)
+
     # OCR fallback for scanned/image-only PDFs (PyMuPDF + system Tesseract).
     # Degrades gracefully to a parse warning when Tesseract is not installed.
     ocr_enabled: bool = Field(default=True)
@@ -36,6 +60,18 @@ class Settings(BaseSettings):
     allow_docx_to_pdf: bool = Field(default=True)
     top_n_projects: int = Field(default=3)
     top_n_experience: int = Field(default=3)
+    # Transactional email (Brevo REST API). When brevo_api_key is unset, emails
+    # are not sent; outside production the verification code is logged instead.
+    brevo_api_key: str | None = Field(default=None)
+    mail_from: str = Field(default="no-reply@example.com")
+    mail_from_name: str = Field(default="CV Barber")
+
+    # Google OAuth (login enabled only when both id and secret are set).
+    google_oauth_client_id: str | None = Field(default=None)
+    google_oauth_client_secret: str | None = Field(default=None)
+    # Public origin of the app; builds the OAuth redirect URL and SPA redirects.
+    app_base_url: str = Field(default="http://localhost:8000")
+
     api_host: str = Field(default="0.0.0.0")
     api_port: int = Field(default=8000)
     env: str = Field(default="development")
@@ -65,6 +101,15 @@ class Settings(BaseSettings):
         if self.gemini_api_key and self.gemini_api_key != "def_key":
             return [self.gemini_api_key]
         return []
+
+    def get_provider_keys(self, provider: str) -> list[str]:
+        """Parse the comma-separated `<provider>_api_keys` setting into a list."""
+        if provider == "groq":
+            return self.get_all_groq_keys()
+        if provider == "gemini":
+            return self.get_all_gemini_keys()
+        raw = getattr(self, f"{provider}_api_keys", None) or ""
+        return [k.strip() for k in raw.split(",") if k.strip()]
 
 
 settings = Settings()

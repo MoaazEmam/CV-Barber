@@ -182,11 +182,12 @@ async def parse_cv(
     # Auto-trigger general ATS score with a fresh DB session.
     async def _run_general_ats(master_cv_id: UUID, master_dump: dict):
         from app.llm.ats_scorer import ATSScorer
+        from app.llm.client_factory import LLMClientFactory
         from app.schemas.master_cv import MasterCV as _MasterCV
 
         try:
             mcv = _MasterCV.model_validate(master_dump)
-            scorer = ATSScorer()
+            scorer = ATSScorer(client=LLMClientFactory.create("background"))
             ats_result = await scorer.score_general(mcv)
         except Exception as e:
             log.warning("auto_general_ats_failed", error=str(e))

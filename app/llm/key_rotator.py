@@ -5,7 +5,6 @@ from datetime import datetime
 
 import pytz
 
-from app.config import settings as default_settings
 from app.llm.exceptions import LLMRateLimitError, LLMAllKeysExhaustedError
 
 PACIFIC = pytz.timezone("US/Pacific")
@@ -15,7 +14,7 @@ class KeyState:
     def __init__(self, key: str):
         self.key = key
         self.is_exhausted_until: float = 0
-        self.daily_exhausted_at: float | None = False
+        self.daily_exhausted_at: float | None = None
 
     def mark_daily_exhausted(self) -> None:
         self.daily_exhausted_at = time.time()
@@ -96,9 +95,3 @@ class KeyRotator:
                 state.mark_daily_exhausted()
                 return
 
-
-# Module-level singleton used by GeminiClient.
-# Falls back to a placeholder key so the object can always be constructed;
-# GeminiClient will only be instantiated by the factory when real keys are present.
-_gemini_keys = default_settings.get_all_gemini_keys() or ["__placeholder__"]
-_rotator = KeyRotator(_gemini_keys)

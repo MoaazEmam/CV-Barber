@@ -32,6 +32,8 @@ httpx = "^0.28.1"
 fastapi-users = {extras = ["sqlalchemy"], version = "^14.0.1"}
 groq = ">=0.28.0"
 slowapi = "^0.1.9"
+openai = "^2.41.0"
+httpx-oauth = "^0.17.0"
 
 
 [tool.poetry.group.dev.dependencies]

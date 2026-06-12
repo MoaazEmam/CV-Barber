@@ -1,7 +1,11 @@
 from datetime import datetime
 from uuid import uuid4
 
-from fastapi_users.db import SQLAlchemyBaseUserTableUUID
+from fastapi_users.db import (
+    SQLAlchemyBaseOAuthAccountTableUUID,
+    SQLAlchemyBaseUserTableUUID,
+)
+from fastapi_users_db_sqlalchemy.generics import GUID
 from sqlalchemy import (
     Boolean,
     DateTime,
@@ -14,15 +18,26 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 
 
+class OAuthAccount(SQLAlchemyBaseOAuthAccountTableUUID, Base):
+    __tablename__ = "oauth_account"
+    # The base class targets table "user"; ours is "users", so redeclare the FK.
+    user_id: Mapped[uuid4] = mapped_column(
+        GUID, ForeignKey("users.id", ondelete="cascade"), nullable=False
+    )
+
+
 class User(SQLAlchemyBaseUserTableUUID, Base):
     __tablename__ = "users"
-    username: Mapped[str] = mapped_column(String, nullable=False)
+    # Nullable: a Google-OAuth user has no username until they pick one
+    # (username IS NULL == "needs username", enforced by the frontend).
+    username: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    oauth_accounts: Mapped[list[OAuthAccount]] = relationship(lazy="joined")
 
     # Case-insensitive uniqueness on username: a functional unique index on
     # lower(username) so "John" and "john" can't both exist. This also serves the
@@ -31,6 +46,25 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
     __table_args__ = (
         Index("ix_users_username_lower", text("lower(username)"), unique=True),
     )
+
+
+class EmailVerificationCode(Base):
+    """One active 6-digit verification code per user (hashed). Replaced on
+    resend; deleted on successful verification."""
+
+    __tablename__ = "email_verification_codes"
+
+    user_id: Mapped[uuid4] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    code_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    last_sent_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    # Sends within the current 1-hour window (reset when the window expires).
+    send_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
 
 class MasterCVModel(Base):

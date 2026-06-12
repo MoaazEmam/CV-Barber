@@ -121,7 +121,7 @@ export default function TailorPage() {
             <input
               type="number"
               min={1}
-              max={10}
+              max={50}
               value={topNExperience}
               onChange={(e) => setTopNExperience(parseInt(e.target.value || '1', 10))}
               className={inputClass}
@@ -132,7 +132,7 @@ export default function TailorPage() {
             <input
               type="number"
               min={1}
-              max={10}
+              max={50}
               value={topNProjects}
               onChange={(e) => setTopNProjects(parseInt(e.target.value || '1', 10))}
               className={inputClass}

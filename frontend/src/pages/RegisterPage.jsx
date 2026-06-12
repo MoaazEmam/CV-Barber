@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import api from '../lib/axios'
+import { authErrorMessage } from '../lib/authErrors'
 import useAppStore from '../store/useAppStore'
 import PasswordInput from '../components/PasswordInput'
+import GoogleButton from '../components/GoogleButton'
 
 export default function RegisterPage() {
   const navigate = useNavigate()
@@ -17,6 +19,24 @@ export default function RegisterPage() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
+
+    const uname = username.trim()
+    if (uname.length < 3) {
+      setError('Username must be at least 3 characters long.')
+      return
+    }
+    if (uname.length > 30) {
+      setError('Username must be at most 30 characters long.')
+      return
+    }
+    if (!/^[A-Za-z0-9]+$/.test(uname)) {
+      setError('Username can only contain letters and numbers.')
+      return
+    }
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters long.')
+      return
+    }
     if (password !== confirmPassword) {
       setError("Passwords don't match.")
       return
@@ -25,7 +45,7 @@ export default function RegisterPage() {
     try {
       await api.post(
         '/auth/register',
-        { email, username, password },
+        { email, username: uname, password },
         { headers: { 'Content-Type': 'application/json' } },
       )
 
@@ -40,13 +60,12 @@ export default function RegisterPage() {
         headers: { Authorization: `Bearer ${token}` },
       })
       setAuth(meRes.data, token)
-      navigate('/')
+      // Hard-gate fresh signups behind email verification (flag read by
+      // ProtectedRoute, cleared by VerifyEmailPage on success).
+      sessionStorage.setItem('postRegister', '1')
+      navigate('/verify-email')
     } catch (err) {
-      const detail = err.response?.data?.detail
-      if (typeof detail === 'string') setError(detail)
-      else if (Array.isArray(detail)) setError(detail.map((d) => d.msg).join(', '))
-      else if (detail?.reason) setError(detail.reason)
-      else setError('Registration failed.')
+      setError(authErrorMessage(err, 'register'))
     } finally {
       setLoading(false)
     }
@@ -115,6 +134,13 @@ export default function RegisterPage() {
 
             {error && <p className="text-red-400 text-sm">{error}</p>}
           </form>
+
+          <div className="flex items-center gap-3 my-5">
+            <div className="flex-1 h-px bg-[var(--border)]" />
+            <span className="text-xs text-[var(--text-muted)]">or</span>
+            <div className="flex-1 h-px bg-[var(--border)]" />
+          </div>
+          <GoogleButton onError={setError} />
 
           <p className="text-sm text-[var(--text-muted)] mt-6 text-center">
             Already have an account?{' '}

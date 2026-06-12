@@ -1,10 +1,8 @@
 """LLM tier selection.
 
-Tier 1 (structure ID, schema extraction): runs on the reliable Groq primary (with
-Gemini fallback) via the existing factory — the same provider the proven legacy
-parser used.
-
-Tier 2 (tailoring, rewriting): the existing Groq->Gemini fallback chain.
+Both tiers run on the interactive fallback chain (Groq-first; see
+app/llm/client_factory.py for the provider order) — parsing and tailoring are
+user-facing, latency-sensitive requests.
 """
 
 from __future__ import annotations
@@ -15,10 +13,10 @@ from app.llm.client_factory import LLMClientFactory
 
 
 def tier1_client() -> BaseLLMClient:
-    """Tier 1 text client — Groq primary + Gemini fallback (reliable, big quota)."""
-    return LLMClientFactory.create()
+    """Tier 1 text client (structure ID, schema extraction) — interactive chain."""
+    return LLMClientFactory.create("interactive")
 
 
 def tier2_client() -> BaseLLMClient:
-    """Tier 2 client — existing provider selection + fallback chain."""
-    return LLMClientFactory.create()
+    """Tier 2 client (tailoring, rewriting) — interactive chain."""
+    return LLMClientFactory.create("interactive")
