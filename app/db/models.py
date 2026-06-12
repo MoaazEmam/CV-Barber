@@ -125,6 +125,24 @@ class QAResponseModel(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+class FeedbackModel(Base):
+    """User-submitted feedback (suggestion / bug / other), reviewed by admins."""
+
+    __tablename__ = "feedback"
+
+    id: Mapped[uuid4] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    user_id: Mapped[uuid4] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    # Plain strings (not PG enums) so the SQLite test DB works; values are
+    # constrained by the Pydantic Literal types in app/api/models.py.
+    type: Mapped[str] = mapped_column(String(20), nullable=False)  # suggestion | bug | other
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    page_context: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="open")  # open | resolved
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class UserTemplateModel(Base):
     """A custom CV template uploaded by a user (.html for WeasyPrint or .tex for
     Tectonic). Rendered only in a sandbox. Reusable across the user's applications."""
