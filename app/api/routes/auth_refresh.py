@@ -16,11 +16,13 @@ from fastapi.security import OAuth2PasswordRequestForm
 
 from app.auth.config import (
     REFRESH_TOKEN_LIFETIME,
+    current_active_user,
     get_jwt_strategy,
     get_refresh_strategy,
 )
 from app.auth.manager import get_user_manager
 from app.config import settings
+from app.db.models import User
 
 router = APIRouter()
 logger = structlog.get_logger()
@@ -74,6 +76,20 @@ async def refresh_access_token(
 
     access = await get_jwt_strategy().write_token(user)
     return {"access_token": access, "token_type": "bearer"}
+
+
+@router.post("/auth/cookie")
+async def issue_refresh_cookie(user: User = Depends(current_active_user)):
+    """Mint the refresh cookie for an already-authenticated session.
+
+    Used after Google OAuth: the SPA receives only an access token in the
+    redirect fragment, then calls this so the session survives like a normal
+    password login.
+    """
+    refresh = await get_refresh_strategy().write_token(user)
+    response = JSONResponse({"ok": True})
+    _set_refresh_cookie(response, refresh)
+    return response
 
 
 @router.post("/auth/logout")
