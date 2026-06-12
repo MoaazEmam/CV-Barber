@@ -18,9 +18,9 @@
   {%- if cv.location %}{{ "" if ns.first else " | " }}{{ cv.location }}{% set ns.first = false %}{% endif -%}
   {%- if cv.phone %}{{ "" if ns.first else " | " }}{{ cv.phone }}{% set ns.first = false %}{% endif -%}
   {%- if cv.email %}{{ "" if ns.first else " | " }}<a href="mailto:{{ cv.email }}">{{ cv.email }}</a>{% set ns.first = false %}{% endif -%}
-  {%- if cv.linkedin %}{{ "" if ns.first else " | " }}<a href="{{ cv.linkedin if cv.linkedin.startswith('http') else 'https://' ~ cv.linkedin }}">{{ cv.linkedin }}</a>{% set ns.first = false %}{% endif -%}
-  {%- if cv.github %}{{ "" if ns.first else " | " }}<a href="{{ cv.github if cv.github.startswith('http') else 'https://' ~ cv.github }}">{{ cv.github }}</a>{% set ns.first = false %}{% endif -%}
-  {%- if cv.website %}{{ "" if ns.first else " | " }}<a href="{{ cv.website if cv.website.startswith('http') else 'https://' ~ cv.website }}">{{ cv.website }}</a>{% set ns.first = false %}{% endif -%}
+  {%- if cv.linkedin %}{{ "" if ns.first else " | " }}<a href="{{ cv.linkedin if cv.linkedin.startswith('http') else 'https://' ~ cv.linkedin }}">LinkedIn</a>{% set ns.first = false %}{% endif -%}
+  {%- if cv.github %}{{ "" if ns.first else " | " }}<a href="{{ cv.github if cv.github.startswith('http') else 'https://' ~ cv.github }}">GitHub</a>{% set ns.first = false %}{% endif -%}
+  {%- if cv.website %}{{ "" if ns.first else " | " }}<a href="{{ cv.website if cv.website.startswith('http') else 'https://' ~ cv.website }}">Website</a>{% set ns.first = false %}{% endif -%}
 </div>
 {% endmacro %}
 
