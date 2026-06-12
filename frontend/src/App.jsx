@@ -9,6 +9,11 @@ import UploadPage from './pages/UploadPage'
 import TailorPage from './pages/TailorPage'
 import ResultsPage from './pages/ResultsPage'
 import HistoryPage from './pages/HistoryPage'
+import VerifyEmailPage from './pages/VerifyEmailPage'
+import ForgotPasswordPage from './pages/ForgotPasswordPage'
+import ResetPasswordPage from './pages/ResetPasswordPage'
+import OAuthCallbackPage from './pages/OAuthCallbackPage'
+import ChooseUsernamePage from './pages/ChooseUsernamePage'
 import useAppStore from './store/useAppStore'
 
 export default function App() {
@@ -35,6 +40,11 @@ export default function App() {
         <Route element={<Layout />}>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
+          <Route path="/oauth-callback" element={<OAuthCallbackPage />} />
+          <Route path="/choose-username" element={<ChooseUsernamePage />} />
           <Route path="/" element={
             <ProtectedRoute><UploadPage /></ProtectedRoute>
           } />

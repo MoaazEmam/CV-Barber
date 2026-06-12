@@ -4,6 +4,7 @@ import api from '../lib/axios'
 import { authErrorMessage } from '../lib/authErrors'
 import useAppStore from '../store/useAppStore'
 import PasswordInput from '../components/PasswordInput'
+import GoogleButton from '../components/GoogleButton'
 
 export default function RegisterPage() {
   const navigate = useNavigate()
@@ -59,7 +60,10 @@ export default function RegisterPage() {
         headers: { Authorization: `Bearer ${token}` },
       })
       setAuth(meRes.data, token)
-      navigate('/')
+      // Hard-gate fresh signups behind email verification (flag read by
+      // ProtectedRoute, cleared by VerifyEmailPage on success).
+      sessionStorage.setItem('postRegister', '1')
+      navigate('/verify-email')
     } catch (err) {
       setError(authErrorMessage(err, 'register'))
     } finally {
@@ -130,6 +134,13 @@ export default function RegisterPage() {
 
             {error && <p className="text-red-400 text-sm">{error}</p>}
           </form>
+
+          <div className="flex items-center gap-3 my-5">
+            <div className="flex-1 h-px bg-[var(--border)]" />
+            <span className="text-xs text-[var(--text-muted)]">or</span>
+            <div className="flex-1 h-px bg-[var(--border)]" />
+          </div>
+          <GoogleButton onError={setError} />
 
           <p className="text-sm text-[var(--text-muted)] mt-6 text-center">
             Already have an account?{' '}

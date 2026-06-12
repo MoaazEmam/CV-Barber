@@ -1,6 +1,7 @@
 import { Link, Outlet, useNavigate } from 'react-router-dom'
 import useAppStore from '../store/useAppStore'
 import api from '../lib/axios'
+import VerifyEmailModal from './VerifyEmailModal'
 
 export default function Layout() {
   const navigate = useNavigate()
@@ -10,6 +11,8 @@ export default function Layout() {
 
   const handleSignOut = () => {
     api.post('/auth/logout').catch(() => {})
+    sessionStorage.removeItem('postRegister')
+    sessionStorage.removeItem('verifyModalDismissed')
     clearAuth()
     navigate('/login')
   }
@@ -51,6 +54,10 @@ export default function Layout() {
       <main className="max-w-5xl mx-auto px-6 py-10">
         <Outlet />
       </main>
+
+      {/* key by user id so the modal's local state (typed code, "sent" step)
+          resets when a different account signs in within the same tab */}
+      {user && <VerifyEmailModal key={user.id} />}
     </div>
   )
 }
