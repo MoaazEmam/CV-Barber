@@ -37,7 +37,13 @@ LLM_USER_LIMITS = "30/hour;80/day"
 # Auth brute-force guard. AUTH_MAX_REQUESTS is the number of *failed* attempts
 # tolerated per IP within the window; successful logins are not counted (see
 # AuthRateLimitMiddleware.dispatch) so legitimate multi-device sign-in is free.
-AUTH_PATHS = ("/auth/login", "/auth/jwt/login", "/auth/register")
+AUTH_PATHS = (
+    "/auth/login",
+    "/auth/jwt/login",
+    "/auth/register",
+    "/auth/verify-code",
+    "/auth/reset-password",  # failed (bad-token) attempts count — blunts token brute-force
+)
 AUTH_MAX_REQUESTS = 5
 AUTH_WINDOW_SECONDS = 60
 
