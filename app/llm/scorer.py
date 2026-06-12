@@ -58,6 +58,11 @@ class CVScorer:
             raw_response = await self._client.complete_json(system_prompt, user_prompt)
             data = json.loads(raw_response)
             tailored = TailoredCV(**data)
+            # The LLM may omit job_title/company_name; the config always has them.
+            if not tailored.job_title:
+                tailored.job_title = config.job_title
+            if not tailored.company_name:
+                tailored.company_name = config.company_name
             # Extra sections aren't scored/tailored in v1 — carry them through from
             # the master CV verbatim so a template that supports them can render them.
             tailored.additional_sections = master_cv.additional_sections

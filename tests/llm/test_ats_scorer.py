@@ -97,11 +97,22 @@ class TestATSScorerGeneral:
         with pytest.raises(LLMValidationError):
             await scorer.score_general(sample_master_cv)
 
-    async def test_general_raises_on_schema_mismatch(self, sample_master_cv):
+    async def test_general_tolerates_missing_lists(self, sample_master_cv):
         client = AsyncMock(spec=BaseLLMClient)
-        # Missing required `improvements` field.
+        # Missing `improvements` is non-vital — coerced to [] rather than failing.
         client.complete_json.return_value = json.dumps(
             {"score": 50, "strengths": ["x"]}
+        )
+        scorer = ATSScorer(client=client)
+        result = await scorer.score_general(sample_master_cv)
+        assert result.score == 50
+        assert result.improvements == []
+
+    async def test_general_raises_on_missing_score(self, sample_master_cv):
+        client = AsyncMock(spec=BaseLLMClient)
+        # A scoreless ATS result is vital info missing — must still fail/retry.
+        client.complete_json.return_value = json.dumps(
+            {"strengths": ["x"], "improvements": ["y"]}
         )
         scorer = ATSScorer(client=client)
         with pytest.raises(LLMValidationError):

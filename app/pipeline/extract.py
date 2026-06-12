@@ -14,11 +14,13 @@ from typing import Literal
 
 from app.extraction.pdf import PdfExtractor
 from app.extraction.docx_ import DocxExtractor
+from app.extraction.odt_ import OdtExtractor
 
-Fmt = Literal["pdf", "docx"]
+Fmt = Literal["pdf", "docx", "odt"]
 
 _pdf = PdfExtractor()
 _docx = DocxExtractor()
+_odt = OdtExtractor()
 
 
 def extract_raw_text(file_path: str, fmt: Fmt) -> str:
@@ -27,7 +29,9 @@ def extract_raw_text(file_path: str, fmt: Fmt) -> str:
         return _pdf.extract_text(file_path)
     if fmt == "docx":
         return _docx.extract_text(file_path)
-    raise ValueError(f"Unsupported format '{fmt}'. Supported: pdf, docx")
+    if fmt == "odt":
+        return _odt.extract_text(file_path)
+    raise ValueError(f"Unsupported format '{fmt}'. Supported: pdf, docx, odt")
 
 
 def extract_raw_text_from_bytes(file_bytes: bytes, fmt: Fmt) -> str:
@@ -48,4 +52,8 @@ def fmt_from_filename(filename: str) -> Fmt:
         return "pdf"
     if suffix == ".docx":
         return "docx"
-    raise ValueError(f"Unsupported file type '{suffix}'. Supported: .pdf, .docx")
+    if suffix == ".odt":
+        return "odt"
+    raise ValueError(
+        f"Unsupported file type '{suffix}'. Supported: .pdf, .docx, .odt"
+    )
