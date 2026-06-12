@@ -5,6 +5,7 @@ from app.llm.client_factory import LLMClientFactory
 from app.llm.exceptions import LLMValidationError
 from app.llm.prompt_loader import load_prompt
 from app.llm.retry import async_retry_llm
+from app.llm.scorer import MAX_JD_CHARS
 from app.schemas.tailored_cv import TailoredCV
 
 logger = structlog.get_logger()
@@ -19,9 +20,15 @@ class CoverLetterGenerator:
     @async_retry_llm(max_retries=3)
     async def generate(self, tailored_cv: TailoredCV, job_description: str) -> str:
         await logger.ainfo("cover_letter_start")
+        if len(job_description) > MAX_JD_CHARS:
+            await logger.awarning(
+                "cover_letter_jd_truncated",
+                original_chars=len(job_description),
+                kept_chars=MAX_JD_CHARS,
+            )
         user_prompt = self._user_template.format(
             tailored_cv_json=tailored_cv.model_dump_json(indent=2),
-            job_description=job_description,
+            job_description=job_description[:MAX_JD_CHARS],
         )
         result = await self.client.complete(self._system, user_prompt)
         if not result or not result.strip():
