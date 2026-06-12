@@ -66,9 +66,9 @@ async def parse_cv(
     current_user: User = Depends(current_active_user),
 ):
     # validate file type
-    if not file.filename.endswith((".pdf", ".docx")):
+    if not file.filename.lower().endswith((".pdf", ".docx", ".odt")):
         raise HTTPException(
-            status_code=400, detail="Unsupported file type. Upload a PDF or DOCX."
+            status_code=400, detail="Unsupported file type. Upload a PDF, DOCX or ODT."
         )
 
     # Read at most MAX_UPLOAD_BYTES + 1 so an oversized file is rejected without
@@ -129,7 +129,8 @@ async def parse_cv(
             ),
         )
 
-    file_type = "pdf" if file.filename.lower().endswith(".pdf") else "docx"
+    suffix = file.filename.lower().rsplit(".", 1)[-1]
+    file_type = {"pdf": "pdf", "docx": "docx", "odt": "odt"}[suffix]
     template_artifact: str | None = None
     section_map: dict | None = None
 

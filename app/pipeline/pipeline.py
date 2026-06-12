@@ -19,7 +19,7 @@ from app.schemas.master_cv import MasterCV
 
 log = structlog.get_logger()
 
-Fmt = Literal["pdf", "docx"]
+Fmt = Literal["pdf", "docx", "odt"]
 
 
 @dataclass
@@ -34,10 +34,10 @@ async def run_parse(file_bytes: bytes, fmt: Fmt, raw_text: str) -> ParseResult:
     template_artifact: str | None = None
     section_map: dict = {}
 
-    if fmt == "pdf":
-        # PDF renders from a user-chosen template (built-in or custom) at render
-        # time, so it needs no per-CV artifact or structure map — only the schema
-        # content extracted below.
+    if fmt in ("pdf", "odt"):
+        # PDF/ODT render from a user-chosen template (built-in or custom) at
+        # render time, so they need no per-CV artifact or structure map — only
+        # the schema content extracted below.
         pass
     elif fmt == "docx":
         from app.pipeline.docx.parse import parse_spans
