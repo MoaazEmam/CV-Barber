@@ -163,8 +163,9 @@ async def parse_cv(
         raise HTTPException(
             status_code=422,
             detail=(
-                "We couldn't reliably read your CV's structure. Please try again, "
-                "or upload a different version of the file."
+                "We couldn't extract enough information from your CV (e.g. a name "
+                "or section headings we can recognize). Please try again, or "
+                "upload a different version of the file."
             ),
         )
 

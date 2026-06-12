@@ -17,7 +17,16 @@ class QARequest(BaseModel):
 
 class QAItem(BaseModel):
     question: str
+    # Required — an empty answer should fail and retry — but tolerate the LLM
+    # returning an answer as a list of parts.
     answer: str
+
+    @field_validator("answer", mode="before")
+    @classmethod
+    def _coerce_answer(cls, v):
+        if isinstance(v, list):
+            return "; ".join(str(x) for x in v if x is not None)
+        return v
 
 
 class QAResponse(BaseModel):

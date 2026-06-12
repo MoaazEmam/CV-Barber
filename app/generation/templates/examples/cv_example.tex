@@ -85,7 +85,7 @@
 \resumeSubHeadingListStart
 \BLOCK{ for edu in cv.education }
   \resumeSubheading
-    {\VAR{ edu.institution }}{\VAR{ edu.date_range.start }\BLOCK{ if edu.date_range.end } -- \VAR{ edu.date_range.end }\BLOCK{ endif }}
+    {\VAR{ edu.institution }}{\BLOCK{ if edu.date_range and edu.date_range.start }\VAR{ edu.date_range.start }\BLOCK{ if edu.date_range.end } -- \VAR{ edu.date_range.end }\BLOCK{ endif }\BLOCK{ endif }}
     {\VAR{ edu.degree }\BLOCK{ if edu.field }, \VAR{ edu.field }\BLOCK{ endif }}{\BLOCK{ if edu.gpa }GPA: \VAR{ edu.gpa }\BLOCK{ endif }}
   \BLOCK{ if edu.relevant_courses }
   \resumeItemListStart
@@ -101,7 +101,7 @@
 \resumeSubHeadingListStart
 \BLOCK{ for exp in cv.experience }
   \resumeSubheading
-    {\VAR{ exp.company }}{\VAR{ exp.date_range.start }\BLOCK{ if exp.date_range.end } -- \VAR{ exp.date_range.end }\BLOCK{ endif }}
+    {\VAR{ exp.company }}{\BLOCK{ if exp.date_range and exp.date_range.start }\VAR{ exp.date_range.start }\BLOCK{ if exp.date_range.end } -- \VAR{ exp.date_range.end }\BLOCK{ endif }\BLOCK{ endif }}
     {\VAR{ exp.title }}{\VAR{ exp.location }}
   \BLOCK{ if exp.bullets }
   \resumeItemListStart
