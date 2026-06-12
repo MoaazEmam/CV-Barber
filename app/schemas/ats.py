@@ -44,3 +44,16 @@ class JobATSScore(BaseModel):
     _coerce_lists = field_validator(
         "matched_keywords", "missing_keywords", "improvements", mode="before"
     )(_coerce_str_list)
+
+    # The prompt asks for the 3-6 most impactful missing keywords and prioritised
+    # matches, but models sometimes dump every JD buzzword. Cap rather than fail —
+    # the lists are ordered most-important-first.
+    @field_validator("matched_keywords")
+    @classmethod
+    def _cap_matched(cls, v: list[str]) -> list[str]:
+        return v[:15]
+
+    @field_validator("missing_keywords")
+    @classmethod
+    def _cap_missing(cls, v: list[str]) -> list[str]:
+        return v[:6]

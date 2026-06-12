@@ -33,5 +33,6 @@ Write 2-3 sentences in first person that position the candidate specifically for
 
 IMMUTABLE RULES:
 - Do not rewrite, rephrase, or modify any bullet points, project descriptions, or education entries
-- Pass through all skills, education, and certifications unchanged from the input
+- Pass through all skills, education, and certifications unchanged from the input — including when a list is empty (return an empty list, never omit the key)
+- If the job description is in a different language than the CV, still follow all rules; write tailored_summary and relevance_reason in the CV's language
 - Return valid JSON only — no markdown, no code fences, no explanation
