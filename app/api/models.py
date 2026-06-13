@@ -21,6 +21,9 @@ class TailorRequest(BaseModel):
     job_title: str
     company_name: str
     job_description: str
+    # Optional web-sourced supplementary JD accepted by the user on the Tailor
+    # page (see /api/enrich-jd). Kept separate from job_description.
+    jd_supplement: Optional[str] = Field(default=None, max_length=4000)
     top_n_experience: int = 3
     top_n_projects: int = 5
     # Reordering is always applied; rewriting the summary for this job is opt-out.
@@ -100,6 +103,23 @@ class MasterCVListItem(BaseModel):
 
 class MasterCVListResponse(BaseModel):
     master_cvs: list[MasterCVListItem]
+
+
+# --- JD enrichment (web search) ---
+
+class EnrichJDRequest(BaseModel):
+    job_title: str = Field(min_length=2, max_length=200)
+    company_name: Optional[str] = Field(default=None, max_length=200)
+
+
+class EnrichJDSource(BaseModel):
+    title: str
+    url: str
+
+
+class EnrichJDResponse(BaseModel):
+    supplement: str
+    sources: list[EnrichJDSource]
 
 
 # --- Feedback ---

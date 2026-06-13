@@ -63,6 +63,7 @@ async def save_application(
     job_description: str,
     user_id: UUID,
     template_id: str | None = None,
+    jd_supplement: str | None = None,
 ) -> UUID:
     row = ApplicationModel(
         id=uuid4(),
@@ -73,6 +74,7 @@ async def save_application(
         job_description=job_description,
         tailored_cv_data=tailored_cv.model_dump(),
         template_id=template_id,
+        jd_supplement=jd_supplement,
     )
     db.add(row)
     await db.commit()

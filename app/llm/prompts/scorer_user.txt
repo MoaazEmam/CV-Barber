@@ -23,9 +23,9 @@ Return a JSON object matching this structure:
   "tailored_summary": "string",
   "job_title": "string",
   "company_name": "string",
-  "education": [ ... same structure as input ... ],
-  "certifications":["string (pass through unchanged from input)"],
-  "skills": [ ... same structure as input ... ],
+  "education": [ ... same structure as input — copy from input even if empty ... ],
+  "certifications": ["string (pass through unchanged from input — copy even if empty)"],
+  "skills": [ ... same structure as input — copy from input even if empty ... ],
   "experience": [
     {{
       "title": "string",

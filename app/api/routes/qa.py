@@ -14,9 +14,15 @@ from app.llm.exceptions import (
     LLMValidationError,
 )
 from app.api.rate_limit import LLM_USER_LIMITS, limiter
-from app.llm.qa import CVQAResponder
+from app.llm.qa import CVQAResponder, fallback_company_queries
+from app.llm.scorer import compose_jd
 from app.schemas.qa import QAItem, QARequest, QAResponse
 from app.schemas.tailored_cv import TailoredCV
+from app.services.search import (
+    get_company_research,
+    lookup_and_append_company_facts,
+    search_enabled,
+)
 
 router = APIRouter()
 logger = structlog.get_logger()
@@ -45,8 +51,44 @@ async def answer_questions(
 
     tailored_cv = TailoredCV.model_validate(application.tailored_cv_data)
     responder = CVQAResponder()
+    research = await get_company_research(
+        db, application.company_name, application.job_title
+    )
+    effective_jd = compose_jd(application.job_description, application.jd_supplement)
     try:
-        qa_result = await responder.answer(tailored_cv, payload.questions)
+        qa_result = await responder.answer(
+            tailored_cv,
+            payload.questions,
+            job_description=effective_jd,
+            company_research=research,
+        )
+
+        # If the model flagged company-fact gaps, fetch them, append to the
+        # shared cache, and regenerate once with the enriched research. Lookup
+        # queries from this second pass are intentionally ignored (no recursion).
+        lookup_queries = list(
+            dict.fromkeys(
+                a.company_lookup_query for a in qa_result.answers if a.company_lookup_query
+            )
+        )
+        # Backstop: the model sometimes hedges about a missing company fact in
+        # prose instead of setting the field — recover those so the search still
+        # fires automatically (no need to re-ask the same question).
+        if not lookup_queries:
+            lookup_queries = fallback_company_queries(
+                qa_result.answers, application.company_name
+            )
+        if lookup_queries and search_enabled():
+            enriched = await lookup_and_append_company_facts(
+                db, application.company_name, lookup_queries, application.job_title
+            )
+            if enriched and enriched != research:
+                qa_result = await responder.answer(
+                    tailored_cv,
+                    payload.questions,
+                    job_description=effective_jd,
+                    company_research=enriched,
+                )
     except LLMAllKeysExhaustedError:
         raise HTTPException(
             status_code=503,

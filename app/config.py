@@ -47,6 +47,7 @@ class Settings(BaseSettings):
     # Optional comma-separated ordering overrides for the fallback chains.
     llm_interactive_chain: str | None = Field(default=None)
     llm_background_chain: str | None = Field(default=None)
+    llm_convert_chain: str | None = Field(default=None)
 
     # OCR fallback for scanned/image-only PDFs (PyMuPDF + system Tesseract).
     # Degrades gracefully to a parse warning when Tesseract is not installed.
@@ -69,6 +70,13 @@ class Settings(BaseSettings):
     brevo_api_key: str | None = Field(default=None)
     mail_from: str = Field(default="no-reply@example.com")
     mail_from_name: str = Field(default="CV Barber")
+
+    # Web search (Tavily). Unset key disables company research + JD enrichment.
+    tavily_api_key: str | None = Field(default=None)
+    # Per-user limits on the search-backed endpoints (shared Tavily quota).
+    search_user_rate_limits: str = Field(default="5/minute;30/day")
+    # Company research rows older than this are refreshed on next use.
+    company_research_ttl_days: int = Field(default=30)
 
     # Google OAuth (login enabled only when both id and secret are set).
     google_oauth_client_id: str | None = Field(default=None)
