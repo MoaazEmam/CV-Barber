@@ -5,8 +5,8 @@ import pytest
 
 from app.llm.base_client import BaseLLMClient
 from app.llm.exceptions import LLMValidationError
-from app.llm.qa import CVQAResponder
-from app.schemas.qa import QAResponse
+from app.llm.qa import CVQAResponder, fallback_company_queries
+from app.schemas.qa import QAItem, QAResponse
 from app.schemas.tailored_cv import TailoredCV
 
 
@@ -95,3 +95,73 @@ class TestCVQAResponder:
         responder = CVQAResponder(client=client)
         with pytest.raises(LLMValidationError):
             await responder.answer(sample_tailored_cv, ["q1"])
+
+    async def test_company_lookup_query_parsed_but_not_serialized(self, sample_tailored_cv):
+        client = AsyncMock(spec=BaseLLMClient)
+        client.complete_json.return_value = json.dumps(
+            {
+                "answers": [
+                    {
+                        "question": "What does Acme build?",
+                        "answer": "Best guess from CV.",
+                        "company_lookup_query": "Acme products",
+                    }
+                ]
+            }
+        )
+        responder = CVQAResponder(client=client)
+        result = await responder.answer(sample_tailored_cv, ["What does Acme build?"])
+        # Available server-side for the route to act on...
+        assert result.answers[0].company_lookup_query == "Acme products"
+        # ...but excluded from the client-facing serialization.
+        assert "company_lookup_query" not in result.model_dump()
+        assert "company_lookup_query" not in result.answers[0].model_dump()
+
+    async def test_blank_lookup_query_coerced_to_none(self, sample_tailored_cv):
+        client = AsyncMock(spec=BaseLLMClient)
+        client.complete_json.return_value = json.dumps(
+            {"answers": [{"question": "q", "answer": "a", "company_lookup_query": "   "}]}
+        )
+        responder = CVQAResponder(client=client)
+        result = await responder.answer(sample_tailored_cv, ["q"])
+        assert result.answers[0].company_lookup_query is None
+
+
+class TestFallbackCompanyQueries:
+    def _item(self, question, answer):
+        return QAItem(question=question, answer=answer)
+
+    def test_detects_prose_hedge_about_company_fact(self):
+        answers = [
+            self._item(
+                "what does gscs do",
+                "The CV does not specify what GSCS does; a company lookup might be necessary.",
+            )
+        ]
+        queries = fallback_company_queries(answers, "Siemens")
+        assert queries == ["Siemens what does gscs do"]
+
+    def test_skips_personal_question(self):
+        answers = [
+            self._item(
+                "expected minimum annual salary",
+                "The CV does not specify what your expected salary is.",
+            )
+        ]
+        assert fallback_company_queries(answers, "Siemens") == []
+
+    def test_ignores_confident_answer(self):
+        answers = [self._item("Tell us a strength", "I led a 4-person team at Acme.")]
+        assert fallback_company_queries(answers, "Acme") == []
+
+    def test_dedupes(self):
+        answers = [
+            self._item("what does gscs do", "does not specify what GSCS does"),
+            self._item("what does gscs do", "no information about GSCS"),
+        ]
+        queries = fallback_company_queries(answers, "Siemens")
+        assert queries == ["Siemens what does gscs do"]
+
+    def test_no_company_name_returns_empty(self):
+        answers = [self._item("what does gscs do", "does not specify what GSCS does")]
+        assert fallback_company_queries(answers, "") == []

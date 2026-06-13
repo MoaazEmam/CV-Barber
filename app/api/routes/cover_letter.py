@@ -18,8 +18,10 @@ from app.llm.exceptions import (
     LLMRateLimitError,
     LLMValidationError,
 )
+from app.llm.scorer import compose_jd
 from app.schemas.cover_letter import CoverLetterResponse
 from app.schemas.tailored_cv import TailoredCV
+from app.services.search import get_company_research
 
 router = APIRouter()
 logger = structlog.get_logger()
@@ -45,8 +47,17 @@ async def generate_cover_letter(
     tailored_cv = TailoredCV.model_validate(application.tailored_cv_data)
     generator = CoverLetterGenerator()
 
+    # Best-effort web research about the company (TTL-cached globally; None when
+    # search is disabled or fails — the letter then relies on the JD alone).
+    research = await get_company_research(
+        db, application.company_name, application.job_title
+    )
+    effective_jd = compose_jd(application.job_description, application.jd_supplement)
+
     try:
-        cover_letter_text = await generator.generate(tailored_cv, application.job_description)
+        cover_letter_text = await generator.generate(
+            tailored_cv, effective_jd, company_research=research
+        )
     except LLMAllKeysExhaustedError:
         raise HTTPException(
             status_code=503,

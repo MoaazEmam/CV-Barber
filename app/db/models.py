@@ -110,7 +110,31 @@ class ApplicationModel(Base):
     job_match_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
     job_improvement_points: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     cover_letter: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Optional web-sourced supplementary JD (user-approved on the Tailor page).
+    # Stored separately from job_description — the two are only combined, clearly
+    # fenced, when building LLM prompts.
+    jd_supplement: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class CompanyResearchModel(Base):
+    """Global TTL cache of web-searched company context (cover letters / QA).
+
+    Keyed by normalized company name and shared across all users so each company
+    costs one search per TTL window. Rows are refreshed in place when stale."""
+
+    __tablename__ = "company_research"
+
+    id: Mapped[uuid4] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    company_key: Mapped[str] = mapped_column(String, nullable=False, unique=True, index=True)
+    company_name: Mapped[str] = mapped_column(String, nullable=False)
+    research: Mapped[str] = mapped_column(Text, nullable=False)
+    fetched_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    # Targeted facts accumulated from Q&A gap lookups, appended over time and kept
+    # across base-research TTL refreshes. extra_topics dedupes which queries have
+    # already been fetched (so the same gap isn't re-searched across users).
+    extra_research: Mapped[str | None] = mapped_column(Text, nullable=True)
+    extra_topics: Mapped[list | None] = mapped_column(JSONB, nullable=True)
 
 
 class QAResponseModel(Base):
