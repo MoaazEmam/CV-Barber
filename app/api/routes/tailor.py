@@ -21,6 +21,7 @@ from app.llm import (
     LLMRateLimitError,
     LLMValidationError,
 )
+from app.llm.scorer import compose_jd
 from app.schemas.config import TailoringConfig
 from app.schemas.tailored_cv import TailoredCV
 
@@ -57,6 +58,9 @@ async def tailor_cv(
         rewrite_summary=payload.rewrite_summary,
     )
 
+    # The user's JD plus the optional web-sourced supplement, clearly fenced.
+    effective_jd = compose_jd(payload.job_description, payload.jd_supplement)
+
     try:
         scorer = CVScorer()
         log.info(
@@ -64,8 +68,9 @@ async def tailor_cv(
             job_title=payload.job_title,
             company=payload.company_name,
             master_cv_id=str(master_cv_id),
+            jd_supplemented=bool(payload.jd_supplement),
         )
-        tailored_cv = await scorer.score(master_cv, payload.job_description, config)
+        tailored_cv = await scorer.score(master_cv, effective_jd, config)
         log.info(
             "scoring_completed",
             experience=len(tailored_cv.experience),
@@ -99,6 +104,7 @@ async def tailor_cv(
         payload.company_name,
         payload.job_description,
         user_id=current_user.id,
+        jd_supplement=payload.jd_supplement,
     )
     log.info("application_saved", application_id=str(tailored_id))
 
@@ -131,7 +137,7 @@ async def tailor_cv(
             await session.commit()
 
     background_tasks.add_task(
-        _run_job_ats, tailored_id, tailored_cv.model_dump(), payload.job_description
+        _run_job_ats, tailored_id, tailored_cv.model_dump(), effective_jd
     )
 
     scores = [
