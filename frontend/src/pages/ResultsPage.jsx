@@ -568,6 +568,8 @@ function TemplatePanel({ applicationId, onSelect }) {
   const [error, setError] = useState('')
   const [warning, setWarning] = useState('')
   const [note, setNote] = useState('')
+  const [uploading, setUploading] = useState(false)
+  const [uploadStep, setUploadStep] = useState(0)
 
   const load = async (notify = true) => {
     setLoading(true)
@@ -639,6 +641,8 @@ function TemplatePanel({ applicationId, onSelect }) {
     e.target.value = ''
     if (!file) return
     setBusy(true)
+    setUploading(true)
+    setUploadStep(0)
     setError('')
     setWarning('')
     setNote('')
@@ -655,8 +659,28 @@ function TemplatePanel({ applicationId, onSelect }) {
       setError(err.response?.data?.detail || 'Upload failed. Use a .html or .tex file.')
     } finally {
       setBusy(false)
+      setUploading(false)
     }
   }
+
+  // Cycle through reassuring status messages while a template converts (the
+  // LLM conversion can take 10-30s) — communicates progress without blocking.
+  const UPLOAD_STEPS = [
+    'Reading your template…',
+    'Detecting placeholders…',
+    'Converting it into a reusable template…',
+    'Test-rendering to make sure it compiles…',
+    'Almost there — finishing up…',
+  ]
+  useEffect(() => {
+    if (!uploading) return
+    const t = setInterval(
+      () => setUploadStep((s) => Math.min(s + 1, UPLOAD_STEPS.length - 1)),
+      4000,
+    )
+    return () => clearInterval(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uploading])
 
   const downloadExample = async (fmt) => {
     try {
@@ -727,24 +751,47 @@ function TemplatePanel({ applicationId, onSelect }) {
             ))}
           </div>
           <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
-            <button
-              type="button"
-              aria-disabled="true"
-              onClick={(e) => e.preventDefault()}
-              title="Custom template uploads are coming soon — we're putting the finishing touches on them!"
-              className="inline-flex items-center gap-2 bg-[var(--surface-raised)] text-[var(--text-muted)] text-sm px-3 py-1.5 rounded-lg opacity-60 cursor-not-allowed"
+            <label
+              title="Upload a .tex or .html template — we'll turn a finished CV into a reusable tailoring template automatically."
+              className={`inline-flex items-center gap-2 bg-[var(--surface-raised)] text-sm px-3 py-1.5 rounded-lg cursor-pointer hover:bg-[var(--surface)] border border-[var(--border)] ${
+                busy ? 'opacity-60 pointer-events-none' : ''
+              }`}
             >
-              Upload your own (coming soon)
-            </button>
-            {/* Hidden until custom template uploads are re-enabled — restore to bring back the example downloads.
+              {uploading ? 'Converting…' : 'Upload your own'}
+              <input
+                type="file"
+                accept=".tex,.html,.htm"
+                onChange={upload}
+                disabled={busy}
+                className="hidden"
+              />
+            </label>
             <span className="text-xs text-[var(--text-muted)]">
               New here? Start from an example:
               <button onClick={() => downloadExample('tex')} className="ml-1 text-[var(--accent)] hover:underline">.tex</button>
               <span className="mx-0.5">·</span>
               <button onClick={() => downloadExample('html')} className="text-[var(--accent)] hover:underline">.html</button>
             </span>
-            */}
           </div>
+          {uploading && (
+            <div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--surface-raised)] p-3 animate-[fadeIn_0.3s_ease]">
+              <div className="flex items-center gap-3">
+                <span className="w-4 h-4 shrink-0 rounded-full border-2 border-[var(--accent)] border-t-transparent animate-spin" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-[var(--text-secondary)] truncate transition-opacity duration-300" key={uploadStep}>
+                    {UPLOAD_STEPS[uploadStep]}
+                  </p>
+                  <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                    This can take up to a minute — you can keep working, we'll select it when it's ready.
+                  </p>
+                </div>
+              </div>
+              {/* Indeterminate shimmer bar — communicates ongoing work without a fake percentage. */}
+              <div className="mt-2.5 h-1 rounded-full bg-[var(--border)] overflow-hidden">
+                <div className="h-full w-1/3 rounded-full bg-[var(--accent)] animate-[slide_1.4s_ease-in-out_infinite]" />
+              </div>
+            </div>
+          )}
         </>
       )}
       {note && <p className="text-emerald-400 text-sm mt-2">{note}</p>}

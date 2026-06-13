@@ -7,6 +7,8 @@ Output rules:
 - Preserve the document EXACTLY: the same document class / DOCTYPE, preamble, packages, imports, custom macros and commands (e.g. \resumeSubheading), CSS, spacing, section order, and overall styling. Change nothing structural. Your only job is to swap hardcoded CV content for placeholders.
 - Do NOT add, remove, or reorder sections. Do NOT redesign the layout. If a piece of content has no matching field in the data model below, leave it as literal text exactly as it was.
 - Never invent data or fields that are not in the model below.
+- REPLACE EVERY piece of hardcoded CV content that has a matching field below — not just the name. The candidate's name, contact details, summary, and every experience/project/education entry, every bullet, every skill and date MUST become a `cv.*` placeholder. Leaving a single real bullet or job title as literal text is WRONG: the result would render that same person's data for every job.
+- Experience, Projects, and Education are ALWAYS multiple sibling entries — each MUST become a single `for ... in cv.experience` / `cv.projects` / `cv.education` loop, never a series of hardcoded blocks. A correct conversion always contains at least one such loop.
 
 The `cv` data object (use only these fields):
   cv.full_name, cv.email, cv.phone, cv.location, cv.linkedin, cv.github, cv.website
@@ -32,6 +34,11 @@ into:
   \BLOCK{ endfor }
 
 Do the same for the bullet items inside each entry: loop over `.bullets`. Wrap optional sections and optional fields in `if` guards so missing data renders cleanly.
+
+DATA-SHAPE MISMATCH — adapt the inner layout when the data shape differs from the document's. The `cv.*` shapes above are fixed; a finished CV may lay a section out assuming a different shape. When the original layout cannot hold the data cleanly, KEEP the section heading and visual style but ADAPT that section's inner layout to the data — never force the data into an incompatible layout. The dominant case is SKILLS:
+- `cv.skills` is ALWAYS a list of `{category, skills[]}` GROUPS — i.e. a few LONG lines (e.g. "Programming Languages: C++, C, Python, JavaScript, SQL, ..."), NOT a flat list of individual one-word skills.
+- Render it as ONE line per category, exactly like the reference template: a SINGLE-column `itemize` with `\textbf{\VAR{ cat.category }}: \VAR{ ", ".join(cat.skills) }` per category (HTML: `{{ cat.skills | join(", ") }}`).
+- If the original document put skills in a WIDE multi-column grid (e.g. `\begin{multicols}{4}` / `multicols{5}` over many single-word `\item`s), DO NOT keep that grid: a few long category lines cannot fit narrow columns and the layout breaks (spill + black overflow bars). REMOVE the `multicols` wrapper for skills and use the single-column form above. Apply the same judgement to any other section that hardcoded a multi-column grid of short items but maps to grouped/long `cv.*` data.
 
 Delimiter convention — use the one matching the Format given in the user message:
 - tex:  variables `\VAR{ cv.field }`; control `\BLOCK{ if ... }` ... `\BLOCK{ endif }`, `\BLOCK{ for x in cv.list }` ... `\BLOCK{ endfor }`; inline lists `\VAR{ ", ".join(cat.skills) }`.

@@ -11,6 +11,10 @@ from app.llm.key_rotator import KeyRotator
 # rotator (rate limits are per account, not per model).
 INTERACTIVE_ORDER = ["groq", "gemini", "nvidia", "mistral", "openrouter", "llm7", "zai"]
 BACKGROUND_ORDER = ["cerebras", "mistral", "groq_small"] + INTERACTIVE_ORDER
+# Template conversion is a rare, demanding task (faithfully rewrite a whole
+# .tex/.html CV into a Jinja template). Lead with the strongest long-form model
+# (Gemini) rather than Groq's 70b, then fall back through the interactive chain.
+CONVERT_ORDER = ["gemini", "groq", "nvidia", "mistral", "openrouter", "zai"]
 
 # One rotator per provider (shared across models) and one client per
 # provider:model, so every caller in the process shares rate-limit state.
@@ -80,15 +84,19 @@ def _build_leaf(provider: str) -> BaseLLMClient | None:
 
 
 def _chain_order(profile: str) -> list[str]:
-    override = (
-        settings.llm_interactive_chain
-        if profile == "interactive"
-        else settings.llm_background_chain
-    )
+    override = {
+        "interactive": settings.llm_interactive_chain,
+        "background": settings.llm_background_chain,
+        "convert": settings.llm_convert_chain,
+    }.get(profile)
     if override:
         order = [p.strip().lower() for p in override.split(",") if p.strip()]
     else:
-        order = INTERACTIVE_ORDER if profile == "interactive" else BACKGROUND_ORDER
+        order = {
+            "interactive": INTERACTIVE_ORDER,
+            "background": BACKGROUND_ORDER,
+            "convert": CONVERT_ORDER,
+        }.get(profile, INTERACTIVE_ORDER)
     deduped: list[str] = []
     for p in order:
         if p not in deduped:
