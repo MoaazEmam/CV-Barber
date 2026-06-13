@@ -20,6 +20,10 @@ class QAItem(BaseModel):
     # Required — an empty answer should fail and retry — but tolerate the LLM
     # returning an answer as a list of parts.
     answer: str
+    # Internal: when the model lacks a public company fact needed to answer, it
+    # emits a focused web-search query here. Server-only — excluded from the API
+    # response (the client never sees it).
+    company_lookup_query: str | None = Field(default=None, exclude=True)
 
     @field_validator("answer", mode="before")
     @classmethod
@@ -27,6 +31,14 @@ class QAItem(BaseModel):
         if isinstance(v, list):
             return "; ".join(str(x) for x in v if x is not None)
         return v
+
+    @field_validator("company_lookup_query", mode="before")
+    @classmethod
+    def _clean_lookup(cls, v):
+        if v is None:
+            return None
+        s = str(v).strip()
+        return s or None
 
 
 class QAResponse(BaseModel):
