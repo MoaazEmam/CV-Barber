@@ -47,6 +47,7 @@ class Settings(BaseSettings):
     # Optional comma-separated ordering overrides for the fallback chains.
     llm_interactive_chain: str | None = Field(default=None)
     llm_background_chain: str | None = Field(default=None)
+    llm_convert_chain: str | None = Field(default=None)
 
     # OCR fallback for scanned/image-only PDFs (PyMuPDF + system Tesseract).
     # Degrades gracefully to a parse warning when Tesseract is not installed.

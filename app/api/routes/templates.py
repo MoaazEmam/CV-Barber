@@ -157,7 +157,7 @@ async def upload_template(
                 # `validate=_test_render` drives a compile-repair loop inside the
                 # converter: a non-compiling result is fed back to the LLM to fix.
                 templatized = await TemplateConverter().convert(
-                    source, fmt, validate=_test_render, max_repairs=1
+                    source, fmt, validate=_test_render, max_repairs=2
                 )
             except (LLMRateLimitError, LLMAllKeysExhaustedError) as e:
                 log.info("template_convert_unavailable", error=str(e), fmt=fmt)

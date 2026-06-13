@@ -42,6 +42,24 @@ log = structlog.get_logger()
 # upload route so the "has placeholders?" check and the converter agree.
 PLACEHOLDER_RE = re.compile(r"(\\VAR\{|\{\{)[^{}]*\bcv\b")
 
+# A genuine templatization references many distinct `cv.*` fields and loops over
+# the list sections. A result with a single `cv.full_name` and everything else
+# hardcoded passes PLACEHOLDER_RE but still renders the same CV for every job —
+# these two patterns gate that out.
+_CV_FIELD_RE = re.compile(r"\bcv\.([A-Za-z_][\w.]*)")  # distinct cv.<path> references
+_CV_LOOP_RE = re.compile(r"\bfor\s+\w+\s+in\s+cv\.\w+")  # for x in cv.experience/...
+# Minimum distinct cv.* field paths a real template must reference (name, email,
+# summary, plus per-entry fields inside at least one loop comfortably exceed this).
+_MIN_CV_FIELDS = 5
+
+
+def _is_substantially_templatized(source: str) -> bool:
+    """True when ``source`` looks like a real reusable template, not a near-verbatim
+    echo with one placeholder bolted on: it must reference several distinct ``cv.*``
+    fields AND loop over at least one list section (experience/projects/...)."""
+    distinct_fields = {m.group(1) for m in _CV_FIELD_RE.finditer(source)}
+    return len(distinct_fields) >= _MIN_CV_FIELDS and _CV_LOOP_RE.search(source) is not None
+
 # A real résumé .tex/.html is a few KB. Above this we skip conversion rather than
 # risk an oversized prompt or a corrupting truncation of the template.
 MAX_CONVERT_CHARS = 40_000
@@ -84,7 +102,7 @@ def _strip_fences(text: str) -> str:
 
 class TemplateConverter:
     def __init__(self, client: BaseLLMClient | None = None):
-        self._client = client or LLMClientFactory.create()
+        self._client = client or LLMClientFactory.create("convert")
         self._system = load_prompt("template_convert_system")
         self._user_template = load_prompt("template_convert_user")
         self._repair_template = load_prompt("template_repair_user")
@@ -144,7 +162,11 @@ class TemplateConverter:
             raise LLMValidationError(f"Template conversion call failed: {e}") from e
 
         converted = _strip_fences(raw)
-        if not PLACEHOLDER_RE.search(converted):
-            # The model echoed the document without adding placeholders — retryable.
-            raise LLMValidationError("Converted template has no cv.* placeholders.")
+        if not _is_substantially_templatized(converted):
+            # The model echoed the document with few/no placeholders and no loops —
+            # it would still render the same CV for every job. Retryable.
+            raise LLMValidationError(
+                "Converted template is not substantially templatized "
+                "(needs several cv.* fields and a loop over a list section)."
+            )
         return converted
