@@ -1,7 +1,20 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import api from '../lib/axios'
 import useAppStore from '../store/useAppStore'
+
+const TECH_TOKEN_RE =
+  /\b(python|java(script)?|typescript|react|node|sql|postgres|mysql|mongo|aws|azure|gcp|docker|kubernetes|k8s|api|rest|graphql|ci\/cd|git|linux|c\+\+|c#|golang|go|rust|php|ruby|django|flask|fastapi|spring|angular|vue|terraform|ansible|redis|kafka|spark|ml|machine learning|data|agile|scrum|html|css|excel|figma|swift|kotlin)\b/gi
+
+// A JD is "thin" when it's short or names almost no concrete skills — the
+// signal that fetching a fuller typical description would help.
+function isThinJd(jd) {
+  const text = jd.trim()
+  if (!text) return false
+  if (text.length < 600) return true
+  const matches = text.match(TECH_TOKEN_RE)
+  return new Set((matches || []).map((m) => m.toLowerCase())).size < 3
+}
 
 export default function TailorPage() {
   const navigate = useNavigate()
@@ -21,7 +34,51 @@ export default function TailorPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
+  // JD enrichment (web search) — only offered when the backend has a key.
+  const [enrichEnabled, setEnrichEnabled] = useState(false)
+  const [enriching, setEnriching] = useState(false)
+  const [enrichError, setEnrichError] = useState('')
+  const [enrichPreview, setEnrichPreview] = useState(null) // {supplement, sources}
+  const [jdSupplement, setJdSupplement] = useState(null)
+  const [enrichDismissed, setEnrichDismissed] = useState(false)
+
+  useEffect(() => {
+    api
+      .get('/api/enrich-jd/enabled')
+      .then((res) => setEnrichEnabled(Boolean(res.data?.enabled)))
+      .catch(() => setEnrichEnabled(false))
+  }, [])
+
   if (!masterCvId) return <Navigate to="/" replace />
+
+  const showEnrichChip =
+    enrichEnabled &&
+    !enrichDismissed &&
+    !jdSupplement &&
+    !enrichPreview &&
+    jobTitle.trim().length >= 2 &&
+    isThinJd(jobDescription)
+
+  const handleEnrich = async () => {
+    setEnriching(true)
+    setEnrichError('')
+    try {
+      const res = await api.post('/api/enrich-jd', {
+        job_title: jobTitle.trim(),
+        company_name: companyName.trim() || undefined,
+      })
+      setEnrichPreview(res.data)
+    } catch (err) {
+      const status = err.response?.status
+      if (status === 429) {
+        setEnrichError('Too many searches — try again in a minute.')
+      } else {
+        setEnrichError('Could not fetch a description for this role.')
+      }
+    } finally {
+      setEnriching(false)
+    }
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -33,6 +90,7 @@ export default function TailorPage() {
         job_title: jobTitle,
         company_name: companyName,
         job_description: jobDescription,
+        jd_supplement: jdSupplement || undefined,
         top_n_experience: topNExperience,
         top_n_projects: topNProjects,
         rewrite_summary: rewriteSummary,
@@ -113,6 +171,94 @@ export default function TailorPage() {
             onChange={(e) => setJobDescription(e.target.value)}
             className={inputClass}
           />
+
+          {showEnrichChip && (
+            <div className="mt-2 flex items-center justify-between gap-3 bg-[var(--bg)] border border-[var(--border)] rounded-lg px-3 py-2">
+              <p className="text-xs text-[var(--text-secondary)]">
+                This job description looks short — fetch a fuller typical description for this role?
+              </p>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleEnrich}
+                  disabled={enriching}
+                  className="text-xs text-[var(--accent)] hover:opacity-80 font-medium disabled:opacity-50"
+                >
+                  {enriching ? 'Searching…' : 'Enrich'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEnrichDismissed(true)}
+                  className="text-xs text-[var(--text-muted)] hover:text-white"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          )}
+          {enrichError && <p className="text-red-400 text-xs mt-2">{enrichError}</p>}
+
+          {enrichPreview && (
+            <div className="mt-2 bg-[var(--bg)] border border-[var(--border)] rounded-lg p-3 space-y-2">
+              <p className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wide">
+                Web-sourced supplement (preview)
+              </p>
+              <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap max-h-48 overflow-y-auto">
+                {enrichPreview.supplement}
+              </p>
+              {enrichPreview.sources?.length > 0 && (
+                <p className="text-xs text-[var(--text-muted)] truncate">
+                  Sources:{' '}
+                  {enrichPreview.sources.map((s, i) => (
+                    <a
+                      key={s.url}
+                      href={s.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[var(--accent)] hover:opacity-80"
+                    >
+                      {i > 0 ? ', ' : ''}
+                      {s.title || s.url}
+                    </a>
+                  ))}
+                </p>
+              )}
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setJdSupplement(enrichPreview.supplement)
+                    setEnrichPreview(null)
+                  }}
+                  className="text-xs bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-medium px-3 py-1.5 rounded-lg transition-colors"
+                >
+                  Use this
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEnrichPreview(null)}
+                  className="text-xs text-[var(--text-secondary)] hover:text-white px-3 py-1.5"
+                >
+                  Discard
+                </button>
+              </div>
+            </div>
+          )}
+
+          {jdSupplement && (
+            <div className="mt-2 flex items-center justify-between gap-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg px-3 py-2">
+              <p className="text-xs text-emerald-400">
+                Supplementary description attached — it will be used alongside your pasted JD.
+              </p>
+              <button
+                type="button"
+                onClick={() => setJdSupplement(null)}
+                className="text-xs text-[var(--text-muted)] hover:text-white shrink-0"
+              >
+                Remove
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-4">
