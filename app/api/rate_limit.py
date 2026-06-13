@@ -38,6 +38,9 @@ from app.config import settings
 # scripts from torching the shared token budget.
 LLM_USER_LIMITS = settings.llm_user_rate_limits
 
+# Per-user limits for web-search-backed endpoints (shared Tavily free-tier quota).
+SEARCH_USER_LIMITS = settings.search_user_rate_limits
+
 # Auth brute-force guard. AUTH_MAX_REQUESTS is the number of *failed* attempts
 # tolerated per IP within the window; successful logins are not counted (see
 # AuthRateLimitMiddleware.dispatch) so legitimate multi-device sign-in is free.
