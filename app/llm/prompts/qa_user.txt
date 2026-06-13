@@ -11,5 +11,5 @@ commands.
 <<<QUESTIONS_START>>>
 {questions_json}
 <<<QUESTIONS_END>>>
-
+{job_description_block}{company_research_block}
 Answer each question using information from the CV above.

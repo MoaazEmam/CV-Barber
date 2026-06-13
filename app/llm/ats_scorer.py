@@ -26,8 +26,10 @@ class ATSScorer:
     @async_retry_llm(max_retries=3)
     async def score_general(self, master_cv: MasterCV) -> GeneralATSScore:
         await logger.ainfo("ats_general_start")
+        # exclude_none: a null field is a serialization artifact, not CV content —
+        # without this the model critiques the JSON ("set end: null to Present").
         user_prompt = self._general_user_template.format(
-            master_cv_json=master_cv.model_dump_json(indent=2)
+            master_cv_json=master_cv.model_dump_json(indent=2, exclude_none=True)
         )
         raw = await self.client.complete_json(self._general_system, user_prompt)
         try:
@@ -51,6 +53,7 @@ class ATSScorer:
         # opinion of it (anchoring bias).
         tailored_cv_json = tailored_cv.model_dump_json(
             indent=2,
+            exclude_none=True,
             exclude={
                 "experience": {"__all__": {"relevance_score", "relevance_reason"}},
                 "projects": {"__all__": {"relevance_score", "relevance_reason"}},
