@@ -22,6 +22,7 @@ backend (e.g. Redis).
 import threading
 import time
 from collections import defaultdict, deque
+from contextvars import ContextVar
 
 from fastapi import Request
 from fastapi.responses import JSONResponse
@@ -40,6 +41,26 @@ LLM_USER_LIMITS = settings.llm_user_rate_limits
 
 # Per-user limits for web-search-backed endpoints (shared Tavily free-tier quota).
 SEARCH_USER_LIMITS = settings.search_user_rate_limits
+
+# Set per-request by the get_user_llm_client dependency (which runs before the
+# SlowAPI limit check, in the same task) so the limit callable below can pick the
+# raised ceiling for bring-your-own-key users. A ContextVar is used because
+# SlowAPI invokes a callable limit with no arguments (no access to the request).
+_byo_request: ContextVar[bool] = ContextVar("byo_llm_request", default=False)
+
+
+def set_byo_request(is_byo: bool) -> None:
+    _byo_request.set(is_byo)
+
+
+def llm_rate_limit() -> str:
+    """Dynamic LLM limit: the raised BYO ceiling when the user supplied their own
+    keys, otherwise the standard shared-pool caps. Used as @limiter.limit(llm_rate_limit)."""
+    return (
+        settings.llm_byo_user_rate_limits
+        if _byo_request.get()
+        else settings.llm_user_rate_limits
+    )
 
 # Auth brute-force guard. AUTH_MAX_REQUESTS is the number of *failed* attempts
 # tolerated per IP within the window; successful logins are not counted (see

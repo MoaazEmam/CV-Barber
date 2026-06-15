@@ -9,7 +9,7 @@ from sqlalchemy import select
 
 from app.api.dependencies import get_master_cv, save_application
 from app.api.models import SectionConfigUpdate, TailorRequest, TailorResponse
-from app.api.rate_limit import LLM_USER_LIMITS, limiter
+from app.api.rate_limit import limiter, llm_rate_limit
 from app.db.models import ApplicationModel
 from app.auth.config import current_active_user
 from app.db.dependencies import get_db
@@ -21,7 +21,9 @@ from app.llm import (
     LLMRateLimitError,
     LLMValidationError,
 )
+from app.llm.base_client import BaseLLMClient
 from app.llm.scorer import compose_jd
+from app.llm.user_clients import get_user_llm_client, make_user_client
 from app.schemas.config import TailoringConfig
 from app.schemas.tailored_cv import TailoredCV
 
@@ -30,14 +32,17 @@ log = structlog.get_logger()
 
 
 @router.post("/tailor", response_model=TailorResponse)
-@limiter.limit(LLM_USER_LIMITS)
+@limiter.limit(llm_rate_limit)
 async def tailor_cv(
     request: Request,
     payload: TailorRequest,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(current_active_user),
+    user_client: BaseLLMClient | None = Depends(get_user_llm_client),
 ):
+    # User's own LLM key config (for building the background-profile client too).
+    key_config = getattr(request.state, "user_key_config", ({}, False))
     try:
         master_cv_id = UUID(payload.session_id)
     except ValueError:
@@ -62,7 +67,7 @@ async def tailor_cv(
     effective_jd = compose_jd(payload.job_description, payload.jd_supplement)
 
     try:
-        scorer = CVScorer()
+        scorer = CVScorer(client=user_client)
         log.info(
             "scoring_started",
             job_title=payload.job_title,
@@ -116,7 +121,8 @@ async def tailor_cv(
 
         try:
             tailored = _TailoredCV.model_validate(tailored_dump)
-            scorer_bg = ATSScorer(client=LLMClientFactory.create("background"))
+            bg_client = make_user_client("background", key_config) or LLMClientFactory.create("background")
+            scorer_bg = ATSScorer(client=bg_client)
             ats_result = await scorer_bg.score_job(tailored, job_description)
         except Exception as e:
             log.warning("auto_job_ats_failed", error=str(e))

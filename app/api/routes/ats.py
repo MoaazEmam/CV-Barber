@@ -5,12 +5,14 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.rate_limit import LLM_USER_LIMITS, limiter
+from app.api.rate_limit import limiter, llm_rate_limit
 from app.auth.config import current_active_user
 from app.db.base import AsyncSessionLocal
 from app.db.dependencies import get_db
 from app.db.models import ApplicationModel, MasterCVModel, User
 from app.llm.ats_scorer import ATSScorer
+from app.llm.base_client import BaseLLMClient
+from app.llm.user_clients import get_user_llm_client
 from app.llm.exceptions import (
     LLMAllKeysExhaustedError,
     LLMRateLimitError,
@@ -55,13 +57,14 @@ async def _persist_job_score(application_id: UUID, score: int, matched: list[str
 
 
 @router.post("/cv/{master_cv_id}/ats/general", response_model=GeneralATSScore)
-@limiter.limit(LLM_USER_LIMITS)
+@limiter.limit(llm_rate_limit)
 async def score_general_ats(
     request: Request,
     master_cv_id: UUID,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(current_active_user),
+    user_client: BaseLLMClient | None = Depends(get_user_llm_client),
 ):
     result = await db.execute(
         select(MasterCVModel).where(MasterCVModel.id == master_cv_id)
@@ -73,7 +76,7 @@ async def score_general_ats(
         raise HTTPException(status_code=403, detail="Forbidden")
 
     master_cv = MasterCV.model_validate(row.parsed_data)
-    scorer = ATSScorer()
+    scorer = ATSScorer(client=user_client)
     try:
         ats_result = await scorer.score_general(master_cv)
     except LLMAllKeysExhaustedError:
@@ -97,13 +100,14 @@ async def score_general_ats(
 
 
 @router.post("/applications/{application_id}/ats/job", response_model=JobATSScore)
-@limiter.limit(LLM_USER_LIMITS)
+@limiter.limit(llm_rate_limit)
 async def score_job_ats(
     request: Request,
     application_id: UUID,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(current_active_user),
+    user_client: BaseLLMClient | None = Depends(get_user_llm_client),
 ):
     result = await db.execute(
         select(ApplicationModel).where(ApplicationModel.id == application_id)
@@ -115,7 +119,7 @@ async def score_job_ats(
         raise HTTPException(status_code=403, detail="Forbidden")
 
     tailored_cv = TailoredCV.model_validate(application.tailored_cv_data)
-    scorer = ATSScorer()
+    scorer = ATSScorer(client=user_client)
     try:
         ats_result = await scorer.score_job(tailored_cv, application.job_description)
     except LLMAllKeysExhaustedError:

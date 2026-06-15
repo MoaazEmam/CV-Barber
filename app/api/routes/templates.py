@@ -26,8 +26,10 @@ from app.api.dependencies import (
     get_user_template_by_hash,
     list_user_templates,
 )
-from app.api.rate_limit import LLM_USER_LIMITS, limiter
+from app.api.rate_limit import limiter, llm_rate_limit
 from app.auth.config import current_active_user
+from app.llm.base_client import BaseLLMClient
+from app.llm.user_clients import get_user_llm_client, make_user_client
 from app.db.dependencies import get_db
 from app.db.models import ApplicationModel, MasterCVModel, User
 from app.generation.template_registry import TEMPLATES_DIR
@@ -70,12 +72,13 @@ def _custom_id(row) -> str:
 
 
 @router.post("/templates")
-@limiter.limit(LLM_USER_LIMITS)
+@limiter.limit(llm_rate_limit)
 async def upload_template(
     request: Request,
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(current_active_user),
+    _user_client: BaseLLMClient | None = Depends(get_user_llm_client),
 ):
     fmt = _format_for(file.filename)
     if fmt is None:
@@ -156,7 +159,10 @@ async def upload_template(
             try:
                 # `validate=_test_render` drives a compile-repair loop inside the
                 # converter: a non-compiling result is fed back to the LLM to fix.
-                templatized = await TemplateConverter().convert(
+                convert_client = make_user_client(
+                    "convert", getattr(request.state, "user_key_config", ({}, False))
+                )
+                templatized = await TemplateConverter(client=convert_client).convert(
                     source, fmt, validate=_test_render, max_repairs=2
                 )
             except (LLMRateLimitError, LLMAllKeysExhaustedError) as e:
