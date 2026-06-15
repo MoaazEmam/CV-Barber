@@ -20,11 +20,12 @@ Return a JSON object matching this structure:
   "linkedin": "string or null",
   "github": "string or null",
   "website": "string or null",
+  "links": [ ... same structure as input ({{label, url}}) — copy from input unchanged ... ],
   "tailored_summary": "string",
   "job_title": "string",
   "company_name": "string",
   "education": [ ... same structure as input — copy from input even if empty ... ],
-  "certifications": ["string (pass through unchanged from input — copy even if empty)"],
+  "certifications": [ ... same structure as input ({{name, issuer, date, url}}) — copy from input unchanged, even if empty ... ],
   "skills": [ ... same structure as input — copy from input even if empty ... ],
   "experience": [
     {{

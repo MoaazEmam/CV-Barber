@@ -9,6 +9,9 @@ object matching this structure:
   "linkedin": "string or null",
   "github": "string or null",
   "website": "string or null",
+  "links": [
+    {{"label": "string or null (e.g. 'Portfolio', 'Google Scholar')", "url": "string"}}
+  ],
   "summary": "string or null",
   "education": [
     {{
@@ -48,7 +51,14 @@ object matching this structure:
       "skills": ["string"]
     }}
   ],
-  "certifications": ["string"],
+  "certifications": [
+    {{
+      "name": "string",
+      "issuer": "string or null",
+      "date": "string or null",
+      "url": "string or null (verification/credential link — never drop it)"
+    }}
+  ],
   "additional_sections": [
     {{
       "title": "string (section heading exactly as written, e.g. 'Honors & Awards')",
@@ -59,7 +69,8 @@ object matching this structure:
           "location": "string or null",
           "date_range": {{"start": "string or null", "end": "string or null"}},
           "bullets": ["string"],
-          "detail": "string or null"
+          "detail": "string or null",
+          "url": "string or null (any link attached to the item)"
         }}
       ]
     }}
