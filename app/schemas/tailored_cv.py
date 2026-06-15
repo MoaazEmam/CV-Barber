@@ -1,10 +1,11 @@
 from typing import Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.schemas.base_cv import BaseCV
 from app.schemas.cv_blocks import (
     AdditionalSection,
+    CertificationEntry,
     ExperienceEntry,
     ProjectEntry,
     SkillCategory,
@@ -12,6 +13,9 @@ from app.schemas.cv_blocks import (
     coerce_additional_sections,
     coerce_certifications,
     coerce_skills,
+    fold_link_sections_into_links,
+    prune_duplicate_links,
+    tidy_combined_section_titles,
 )
 
 
@@ -64,7 +68,7 @@ class TailoredCV(BaseCV):
     projects: list[ScoredProjectEntry] = Field(default_factory=list)
     skills: list[SkillCategory] = Field(default_factory=list)
     education: list[EducationEntry] = Field(default_factory=list)
-    certifications:list[str]=Field(default_factory=list)
+    certifications: list[CertificationEntry] = Field(default_factory=list)
     # Non-standard sections carried through from the master CV unchanged (not scored).
     additional_sections: list[AdditionalSection] = Field(default_factory=list)
     # Defaulted: the LLM may omit these; the scorer backfills them from the
@@ -86,3 +90,9 @@ class TailoredCV(BaseCV):
     _coerce_certifications = field_validator("certifications", mode="before")(
         coerce_certifications
     )
+
+    @model_validator(mode="after")
+    def _clean_cross_field(self):
+        return tidy_combined_section_titles(
+            prune_duplicate_links(fold_link_sections_into_links(self))
+        )

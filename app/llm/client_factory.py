@@ -83,6 +83,42 @@ def _build_leaf(provider: str) -> BaseLLMClient | None:
     return _clients[cache_key]
 
 
+def _build_user_leaf(provider: str, keys: list[str]) -> BaseLLMClient | None:
+    """Build a client for one provider using a user's own keys. Unlike
+    ``_build_leaf`` this is NOT cached and gets a fresh ``KeyRotator`` per call, so
+    one user's keys/quota state never leak into the shared process-wide caches."""
+    if not keys:
+        return None
+    rotator = KeyRotator(keys)
+    if provider in ("groq", "groq_small"):
+        from app.llm.groq_client import GroqClient
+
+        model = settings.groq_small_model if provider == "groq_small" else settings.groq_model
+        return GroqClient(keys, model, rotator=rotator)
+
+    if provider == "gemini":
+        from app.llm.gemini_client import GeminiClient
+
+        return GeminiClient(keys, rotator=rotator)
+
+    from app.llm.providers import PROVIDERS
+
+    spec = PROVIDERS.get(provider)
+    if spec is None:
+        return None
+    model = getattr(settings, f"{provider}_model")
+    from app.llm.openai_compat_client import OpenAICompatibleClient
+
+    return OpenAICompatibleClient(
+        base_url=spec.base_url,
+        api_keys=keys,
+        model=model,
+        provider_name=provider,
+        supports_json_mode=spec.json_mode,
+        rotator=rotator,
+    )
+
+
 def _chain_order(profile: str) -> list[str]:
     override = {
         "interactive": settings.llm_interactive_chain,
@@ -106,8 +142,38 @@ def _chain_order(profile: str) -> list[str]:
 
 class LLMClientFactory:
     @staticmethod
-    def create(profile: str = "interactive") -> BaseLLMClient:
+    def create(
+        profile: str = "interactive",
+        *,
+        user_keys: dict[str, list[str]] | None = None,
+        fallback_to_shared: bool = False,
+    ) -> BaseLLMClient:
         provider = settings.llm_provider.lower()
+
+        # Bring-your-own-keys path: build a fresh (uncached) chain from the user's
+        # own keys for whichever configured providers fall in this profile's order,
+        # optionally appending the shared app chain as a fallback. Only applies to
+        # the default groq-chain mode; legacy single-provider modes ignore it.
+        if user_keys and provider == "groq":
+            user_clients: list[BaseLLMClient] = []
+            for name in _chain_order(profile):
+                leaf = _build_user_leaf(name, user_keys.get(name) or [])
+                if leaf is not None:
+                    user_clients.append(leaf)
+            if user_clients:
+                clients = list(user_clients)
+                if fallback_to_shared:
+                    with _lock:
+                        for name in _chain_order(profile):
+                            shared = _build_leaf(name)
+                            if shared is not None and shared not in clients:
+                                clients.append(shared)
+                if len(clients) == 1:
+                    return clients[0]
+                from app.llm.chain_client import ChainLLMClient
+
+                return ChainLLMClient(clients)
+            # No usable user keys for this chain — fall through to the shared chain.
 
         # Legacy escape hatches: a single explicit provider, no chain.
         if provider == "gemini":

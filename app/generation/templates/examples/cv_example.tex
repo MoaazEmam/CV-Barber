@@ -7,14 +7,14 @@
 %  a template with your own text hardcoded will produce the same PDF every time.
 %
 %  Available data (the `cv` object):
-%    cv.full_name, cv.email, cv.phone, cv.location, cv.linkedin, cv.github, cv.website
+%    cv.full_name, cv.email, cv.phone, cv.location, cv.linkedin, cv.github, cv.website, cv.links[] (.label .url)
 %    cv.tailored_summary
 %    cv.experience[]  -> .title .company .location .date_range.start .date_range.end .bullets[]
 %    cv.projects[]    -> .name .description .tech_stack[] .bullets[] .url .date_range.start/.end
 %    cv.education[]   -> .institution .degree .field .minor .gpa .honors .date_range.* .relevant_courses[]
 %    cv.skills[]      -> .category .skills[]
-%    cv.certifications[]            (list of strings)
-%    cv.additional_sections[]       -> .title .entries[] (.heading .subheading .detail .bullets[])
+%    cv.certifications[]            -> .name .issuer .date .url
+%    cv.additional_sections[]       -> .title .entries[] (.heading .subheading .detail .bullets[] .url)
 %
 %  Compiles with Tectonic (XeTeX). Based on Jake Gutierrez's popular resume.
 %==============================================================================
@@ -71,7 +71,8 @@
     \BLOCK{ if cv.phone }\faPhone\ \VAR{ cv.phone } ~ \BLOCK{ endif }
     \BLOCK{ if cv.email }\href{mailto:\VAR{ cv.email }}{\faEnvelope\ \underline{\VAR{ cv.email }}} ~ \BLOCK{ endif }
     \BLOCK{ if cv.linkedin }\href{\VAR{ cv.linkedin }}{\faLinkedin\ \underline{LinkedIn}} ~ \BLOCK{ endif }
-    \BLOCK{ if cv.github }\href{\VAR{ cv.github }}{\faGithub\ \underline{GitHub}}\BLOCK{ endif }
+    \BLOCK{ if cv.github }\href{\VAR{ cv.github }}{\faGithub\ \underline{GitHub}} ~ \BLOCK{ endif }
+    \BLOCK{ for link in cv.links }\href{\VAR{ link.url }}{\faLink\ \underline{\VAR{ link.display }}} ~ \BLOCK{ endfor }
 \end{center}
 
 \BLOCK{ if cv.tailored_summary }
@@ -142,7 +143,7 @@
 \BLOCK{ if cv.certifications }
 \section{Certifications}
 \begin{itemize}[leftmargin=0.15in]
-\BLOCK{ for c in cv.certifications }\item\small \VAR{ c }
+\BLOCK{ for c in cv.certifications }\item\small \VAR{ c.name }\BLOCK{ if c.issuer } --- \VAR{ c.issuer }\BLOCK{ endif }\BLOCK{ if c.date } (\VAR{ c.date })\BLOCK{ endif }
 \BLOCK{ endfor }
 \end{itemize}
 \vspace{-4pt}

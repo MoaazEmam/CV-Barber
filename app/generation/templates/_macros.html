@@ -21,6 +21,7 @@
   {%- if cv.linkedin %}{{ "" if ns.first else " | " }}<a href="{{ cv.linkedin if cv.linkedin.startswith('http') else 'https://' ~ cv.linkedin }}">LinkedIn</a>{% set ns.first = false %}{% endif -%}
   {%- if cv.github %}{{ "" if ns.first else " | " }}<a href="{{ cv.github if cv.github.startswith('http') else 'https://' ~ cv.github }}">GitHub</a>{% set ns.first = false %}{% endif -%}
   {%- if cv.website %}{{ "" if ns.first else " | " }}<a href="{{ cv.website if cv.website.startswith('http') else 'https://' ~ cv.website }}">Website</a>{% set ns.first = false %}{% endif -%}
+  {%- for link in cv.links %}{{ "" if ns.first else " | " }}<a href="{{ link.url if link.url.startswith('http') else 'https://' ~ link.url }}">{{ link.display }}</a>{% set ns.first = false %}{% endfor -%}
 </div>
 {% endmacro %}
 
@@ -84,7 +85,7 @@
   {% for entry in cv.projects %}
   <div class="entry">
     <div class="entry-header">
-      <span class="entry-title">{{ entry.name }}{% if entry.tech_stack %} — {{ entry.tech_stack | join(", ") }}{% endif %}</span>
+      <span class="entry-title">{% if entry.url %}<a href="{{ entry.url }}">{{ entry.name }}</a>{% else %}{{ entry.name }}{% endif %}{% if entry.tech_stack %} — {{ entry.tech_stack | join(", ") }}{% endif %}</span>
       <span class="entry-meta">{{ _dates(entry.date_range) }}</span>
     </div>
     {% if entry.description %}<div class="entry-sub">{{ entry.description }}</div>{% endif %}
@@ -110,7 +111,7 @@
 {% if cv.certifications %}
 <div class="section">
   <div class="section-heading">Certifications</div>
-  <ul>{% for c in cv.certifications %}<li>{{ c }}</li>{% endfor %}</ul>
+  <ul>{% for c in cv.certifications %}<li>{% if c.url %}<a href="{{ c.url }}">{{ c.name }}</a>{% else %}{{ c.name }}{% endif %}{% if c.issuer %} — {{ c.issuer }}{% endif %}{% if c.date %} ({{ c.date }}){% endif %}</li>{% endfor %}</ul>
 </div>
 {% endif %}
 {% endmacro %}
@@ -124,12 +125,13 @@
   <div class="entry">
     {% if entry.heading or entry.subheading or (entry.date_range and entry.date_range.start) or entry.location %}
     <div class="entry-header">
-      <span class="entry-title">{% if entry.heading %}{{ entry.heading }}{% endif %}{% if entry.subheading %}{% if entry.heading %} — {% endif %}{{ entry.subheading }}{% endif %}</span>
+      <span class="entry-title">{% if entry.heading %}{% if entry.url %}<a href="{{ entry.url }}">{{ entry.heading }}</a>{% else %}{{ entry.heading }}{% endif %}{% endif %}{% if entry.subheading %}{% if entry.heading %} — {% endif %}{{ entry.subheading }}{% endif %}</span>
       <span class="entry-meta">{{ _dates(entry.date_range) }}{% if entry.location %}{% if entry.date_range and entry.date_range.start %} · {% endif %}{{ entry.location }}{% endif %}</span>
     </div>
     {% endif %}
     {% if entry.detail %}<div class="entry-sub">{{ entry.detail }}</div>{% endif %}
     {% if entry.bullets %}<ul>{% for b in entry.bullets %}<li>{{ b }}</li>{% endfor %}</ul>{% endif %}
+    {% if entry.url and not entry.heading %}<div class="entry-detail"><a href="{{ entry.url }}">{{ entry.url | link_label }}</a></div>{% endif %}
   </div>
   {% endfor %}
 </div>

@@ -5,62 +5,71 @@ RUN npm ci
 COPY frontend/ ./
 RUN npm run build
 
-FROM python:3.12-slim AS backend
+FROM python:3.12-slim AS deps
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
+    libffi-dev \
     wget \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+
+RUN pip install --no-cache-dir "poetry==2.4.1"
+
+COPY pyproject.toml poetry.lock ./
+
+ENV POETRY_REQUESTS_TIMEOUT=180
+RUN poetry config virtualenvs.in-project true \
+    && { poetry install --only main --no-interaction --no-ansi --no-root \
+        || { echo "retry 1..."; sleep 10; poetry install --only main --no-interaction --no-ansi --no-root; } \
+        || { echo "retry 2..."; sleep 20; poetry install --only main --no-interaction --no-ansi --no-root; } \
+        || { echo "retry 3..."; sleep 30; poetry install --only main --no-interaction --no-ansi --no-root; }; }
+
+# Tectonic — static (musl) binary straight from the GitHub release (NOT apt, which
+# would pull the full TexLive tree). Tectonic fetches/caches LaTeX packages on
+# first use; the runtime stage primes that cache so the first compile is fast.
+ARG TECTONIC_VERSION=0.15.0
+RUN wget -q "https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic@${TECTONIC_VERSION}/tectonic-${TECTONIC_VERSION}-x86_64-unknown-linux-musl.tar.gz" -O /tmp/tectonic.tar.gz \
+    && tar -xzf /tmp/tectonic.tar.gz -C /usr/local/bin tectonic \
+    && rm /tmp/tectonic.tar.gz \
+    && chmod +x /usr/local/bin/tectonic
+
+FROM python:3.12-slim AS runtime
+WORKDIR /app
+
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     libpango-1.0-0 \
     libpangoft2-1.0-0 \
     libpangocairo-1.0-0 \
     libgdk-pixbuf-2.0-0 \
-    libffi-dev \
     libcairo2 \
-    libgtk-3-0 \
     shared-mime-info \
     tesseract-ocr \
     tesseract-ocr-eng \
-    fonts-texgyre \
     fonts-liberation \
-    fonts-dejavu \
+    fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
-# Tesseract 5 (Debian trixie, the current python:3.12-slim base) ships its
-# language data here; PyMuPDF's OCR needs TESSDATA_PREFIX to locate it.
+# Tesseract 5 (Debian trixie) ships its language data here; PyMuPDF's OCR needs
+# TESSDATA_PREFIX to locate it.
 ENV TESSDATA_PREFIX=/usr/share/tesseract-ocr/5/tessdata
+# Run the app out of the copied virtualenv.
+ENV PATH="/app/.venv/bin:$PATH"
 
-# Tectonic — installed as a static (musl) binary straight from the GitHub
-# release, NOT via apt, so we avoid pulling in the full TexLive dependency tree.
-# Tectonic fetches and caches LaTeX packages on first use; we prime that cache at
-# build time (below) so the first user's compile isn't slow.
-ARG TECTONIC_VERSION=0.15.0
-RUN wget -q "https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic@${TECTONIC_VERSION}/tectonic-${TECTONIC_VERSION}-x86_64-unknown-linux-musl.tar.gz" -O /tmp/tectonic.tar.gz \
-    && tar -xzf /tmp/tectonic.tar.gz -C /usr/local/bin tectonic \
-    && rm /tmp/tectonic.tar.gz \
-    && chmod +x /usr/local/bin/tectonic \
-    && tectonic --version
-
-RUN pip install poetry
-COPY pyproject.toml poetry.lock ./
-# Resilient install: PyPI file downloads occasionally read-timeout, so use a
-# generous per-request timeout and retry a few times with backoff before failing.
-ENV POETRY_REQUESTS_TIMEOUT=180
-RUN poetry config virtualenvs.create false \
-    && { poetry install --no-interaction --no-ansi --no-root \
-        || { echo "retry 1..."; sleep 10; poetry install --no-interaction --no-ansi --no-root; } \
-        || { echo "retry 2..."; sleep 20; poetry install --no-interaction --no-ansi --no-root; } \
-        || { echo "retry 3..."; sleep 30; poetry install --no-interaction --no-ansi --no-root; }; }
+COPY --from=deps /app/.venv /app/.venv
+COPY --from=deps /usr/local/bin/tectonic /usr/local/bin/tectonic
 
 COPY app/ ./app/
 COPY alembic/ ./alembic/
 COPY alembic.ini ./
-
 COPY --from=frontend-builder /app/static ./app/static/
 
 # Drop root: run as an unprivileged user. --create-home gives WeasyPrint/fontconfig
-# a writable HOME for its cache.
+# (and Tectonic's cache) a writable HOME.
 RUN useradd --create-home --uid 1000 appuser
 USER appuser
 

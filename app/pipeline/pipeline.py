@@ -13,6 +13,7 @@ from typing import Literal
 
 import structlog
 
+from app.llm.base_client import BaseLLMClient
 from app.pipeline.schema_extract import SchemaExtractor
 from app.pipeline.structure import StructureIdentifier
 from app.schemas.master_cv import MasterCV
@@ -29,8 +30,13 @@ class ParseResult:
     section_map: dict
 
 
-async def run_parse(file_bytes: bytes, fmt: Fmt, raw_text: str) -> ParseResult:
-    """Run the Tier 1 parse pipeline for one CV. One-time per unique CV."""
+async def run_parse(
+    file_bytes: bytes, fmt: Fmt, raw_text: str, client: BaseLLMClient | None = None
+) -> ParseResult:
+    """Run the Tier 1 parse pipeline for one CV. One-time per unique CV.
+
+    ``client`` (optional) injects a specific LLM client — e.g. one built from the
+    user's own API keys; when None the extractors use the shared default chain."""
     template_artifact: str | None = None
     section_map: dict = {}
 
@@ -46,12 +52,12 @@ async def run_parse(file_bytes: bytes, fmt: Fmt, raw_text: str) -> ParseResult:
         # DOCX "keep original" edits the document in place; structure ID maps
         # paragraphs -> entries so the renderer can locate/delete/reorder them.
         spans = parse_spans(file_bytes)
-        section_map = await StructureIdentifier().identify(spans)
+        section_map = await StructureIdentifier(client=client).identify(spans)
         template_artifact = build_artifact(section_map)
     else:
         raise ValueError(f"Unsupported format '{fmt}'.")
 
-    master_cv = await SchemaExtractor().extract(raw_text, section_map)
+    master_cv = await SchemaExtractor(client=client).extract(raw_text, section_map)
     log.info(
         "pipeline_parse_completed",
         fmt=fmt,

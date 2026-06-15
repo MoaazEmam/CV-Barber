@@ -70,7 +70,7 @@ class TestApplySectionConfig:
         assert len(out.projects) == 2
         assert len(out.skills) == 2
         assert len(out.education) == 1
-        assert out.certifications == ["AWS Cert", "GCP Cert"]
+        assert [c.name for c in out.certifications] == ["AWS Cert", "GCP Cert"]
 
     def test_empty_dict_returns_cv_unchanged(self):
         cv = _make_cv()
@@ -136,7 +136,7 @@ class TestApplySectionConfig:
                 }
             },
         )
-        assert out.certifications == ["GCP Cert"]
+        assert [c.name for c in out.certifications] == ["GCP Cert"]
 
     def test_multiple_sections_filtered_together(self):
         cv = _make_cv()

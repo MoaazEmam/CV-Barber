@@ -4,21 +4,37 @@ Tailor your CV to any job description in seconds. Upload once, apply everywhere 
 
 CV Barber parses your CV into structured data, scores every experience and project entry for relevance against a job description, picks the best ones, writes a tailored summary, and outputs a polished DOCX or PDF. It also generates cover letters, answers application questions, and scores your CV against ATS systems.
 
+🚀 **Live app**: [cv-barber-production.up.railway.app](https://cv-barber-production.up.railway.app/)
+
 ---
 
 ## Features
 
+### Core
 - **CV parsing** — upload a PDF or DOCX and get a structured master CV stored in your account
-- **Smart tailoring** — LLM scores each experience and project by relevance, selects the top N, and writes a job-specific summary
-- **ATS scoring** — general CV quality score and job-match score with matched/missing keywords and improvement suggestions
-- **Application Q&A** — paste questions from a job application and get tailored answers grounded in your CV
-- **Cover letter generator** — one-click cover letter downloadable as TXT, DOCX, or PDF
-- **Section editor** — toggle individual CV sections and entries on/off; preview updates instantly
-- **In-browser preview** — live HTML preview of your tailored CV before downloading
-- **Custom templates** — upload your own HTML or LaTeX templates; auto-converts filled-in CVs into reusable templates with placeholders
-- **Download** — export as DOCX or PDF using built-in themes or your custom templates
+- **Smart tailoring** — LLM scores each experience and project by relevance (0–10), selects the top N, and writes a job-specific summary
+- **Download** — export as DOCX (original format) or PDF (using built-in themes or custom templates)
 - **History** — all past applications saved and accessible; re-tailor or edit job details at any time
 - **Reuse your CV** — pick any previously uploaded CV without re-uploading
+
+### Content Generation
+- **Cover letter generator** — one-click cover letter tailored to job description, downloadable as TXT, DOCX, or PDF
+- **Application Q&A** — paste 1–10 questions from a job application and get tailored answers grounded in your CV and the job description
+- **Company & job research** *(optional, requires Tavily API key)* — automatically research the company and job posting to enrich your cover letter, Q&A, and tailoring. Gap-aware: if an answer needs company-specific facts, CV Barber searches for them automatically.
+- **ATS scoring** — general CV quality score and job-match score with matched/missing keywords and improvement suggestions
+- **JD enrichment** *(optional, requires Tavily API key)* — auto-supplement thin job descriptions with research data to improve scoring accuracy
+
+### Customization
+- **Section editor** — toggle individual CV sections and entries on/off; preview updates instantly
+- **In-browser preview** — live HTML preview of your tailored CV before downloading
+- **Custom templates** — upload your own HTML or LaTeX templates (≤256 KB). CV Barber auto-converts filled-in CVs into reusable templates with Jinja placeholders, or uses templates as-is if placeholders already exist. All custom templates are sandboxed for security.
+- **Built-in themes** — 5 ATS-optimized PDF themes (classic, modern, compact, professional, minimal)
+
+### Platform
+- **Email verification** — 6-digit code sent to your email (uses Brevo)
+- **Google OAuth login** — sign in with Google and link to your email account
+- **Feedback** — submit bugs, feature requests, or general feedback directly from the app
+- **Admin dashboard** *(superuser-only)* — view metrics (users, uploads, applications, template popularity), review feedback, and monitor platform activity
 
 ---
 
@@ -160,27 +176,57 @@ docker compose restart app
 | `OCR_ENABLED` | `true` | no | OCR fallback for scanned PDFs — requires Tesseract (pre-installed in Docker) |
 | `OCR_DPI` | `300` | no | DPI for OCR rendering |
 | `ALLOW_DOCX_TO_PDF` | `true` | no | Allow DOCX inputs to render as PDF; if `false`, DOCX can only render back to DOCX |
-| `BREVO_API_KEY` | — | no | Brevo REST API key for transactional email (email verification). Unset in dev = codes logged instead |
+| `TAVILY_API_KEY` | — | no | Web search API key for company research and JD enrichment; features disabled when unset |
+| `BREVO_API_KEY` | — | no | Brevo REST API key for email verification. Unset in dev = codes logged to console instead |
 | `MAIL_FROM` | `no-reply@example.com` | no | From address for verification emails |
 | `MAIL_FROM_NAME` | `CV Barber` | no | From name for verification emails |
-| `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` | — | no | Google OAuth credentials; login disabled when unset |
+| `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` | — | no | Google OAuth credentials; Google login disabled when unset (email/password auth always available) |
 | `APP_BASE_URL` | `http://localhost:8000` | no | Public origin of the app; used for OAuth redirects and SPA handoff |
 | `ALLOWED_HOSTS` | `*` | no | Comma-separated allowed hosts; `*` disables host check |
 | `ENV` | `development` | no | `development` (pretty logs, SQL echo) or `production` (JSON logs) |
 | `API_HOST` | `0.0.0.0` | no | Uvicorn bind host |
 | `API_PORT` | `8000` | no | Uvicorn bind port |
 
+### Optional features
+
+**Company & job research** (cover letter, Q&A enrichment, JD auto-supplement):
+- Requires: `TAVILY_API_KEY` (get one free at [tavily.com](https://tavily.com))
+- When disabled: Q&A, cover letters, and ATS scoring still work, but without company-specific research
+- When enabled: The app auto-enriches your answers with company facts and auto-supplements thin job descriptions
+
+**Email verification** (account security):
+- Requires: `BREVO_API_KEY` (get one free at [brevo.com](https://brevo.com))
+- When disabled: verification codes are logged to the server console instead of emailed
+- When enabled: users must verify their email address within 15 minutes of signup
+
+**Google OAuth** (faster login):
+- Requires: `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` (get them at [Google Cloud Console](https://console.cloud.google.com))
+- When disabled: only email/password login is available
+- When enabled: users can sign in with one click via their Google account
+
 ### Recommended free setup
 
-The easiest free configuration is Groq as primary with Gemini as fallback:
+The easiest free configuration uses Groq as primary with Gemini as fallback:
 
 ```bash
-LLM_PROVIDER=groq
+# Core (required)
+DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/cvbarber
+SECRET_KEY=$(openssl rand -hex 32)
+
+# LLM providers (at least one required)
 GROQ_API_KEYS=your_groq_key_1,your_groq_key_2
 GEMINI_API_KEY=your_gemini_key   # optional fallback
+
+# Optional but recommended
+TAVILY_API_KEY=your_tavily_key              # company research
+BREVO_API_KEY=your_brevo_key                # email verification
+GOOGLE_OAUTH_CLIENT_ID=your_oauth_client_id # Google login
 ```
 
-Groq offers ~14,400 requests/day per free key. When Groq is exhausted, Gemini is used automatically as a fallback. Get Groq keys at [console.groq.com](https://console.groq.com) and Gemini keys at [aistudio.google.com](https://aistudio.google.com).
+- **Groq**: ~14,400 requests/day per free key. Get at [console.groq.com](https://console.groq.com)
+- **Gemini**: Auto-fallback when Groq is exhausted. Get at [aistudio.google.com](https://aistudio.google.com)
+- **Tavily**: Free plan includes daily searches. Get at [tavily.com](https://tavily.com)
+- **Brevo**: Free tier covers verification emails. Get at [brevo.com](https://brevo.com)
 
 ---
 

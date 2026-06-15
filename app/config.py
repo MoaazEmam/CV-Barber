@@ -63,6 +63,12 @@ class Settings(BaseSettings):
     # The per-minute window is the real abuse guard; the hourly/daily caps keep
     # one user under ~1/3 of the conservative global free-tier capacity.
     llm_user_rate_limits: str = Field(default="10/minute;60/hour;250/day")
+    # Raised ceiling for users who supplied their own LLM keys (BYO) — they spend
+    # their own quota, so the cap only needs to stop runaway scripts/bugs.
+    llm_byo_user_rate_limits: str = Field(default="60/minute;1000/hour;5000/day")
+    # Fernet key for encrypting stored per-user LLM keys at rest. Unset -> derived
+    # from SECRET_KEY (fine for dev; set a dedicated key in production).
+    llm_key_encryption_key: str | None = Field(default=None)
     top_n_projects: int = Field(default=3)
     top_n_experience: int = Field(default=3)
     # Transactional email (Brevo REST API). When brevo_api_key is unset, emails
@@ -125,3 +131,10 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+# Providers a user may supply their own key for (the BYO feature). Excludes the
+# keyless `llm7` and local `ollama`. groq/gemini use dedicated clients; the rest
+# are OpenAI-compatible (see app/llm/providers.py).
+SUPPORTED_BYO_PROVIDERS = [
+    "groq", "gemini", "cerebras", "nvidia", "mistral", "openrouter", "zai",
+]
