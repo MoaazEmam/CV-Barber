@@ -129,7 +129,104 @@ def test_certifications_as_objects_are_coerced():
             None,
         ],
     )
-    assert cv.certifications == ["AWS SAA", "CKA", "GCP ACE"]
+    assert [c.name for c in cv.certifications] == ["AWS SAA", "CKA", "GCP ACE"]
+    assert cv.certifications[0].issuer == "Amazon"
+    assert cv.certifications[0].date == "2023"
+
+
+def test_duplicate_item_link_pruned_from_top_links():
+    """A credential URL attached to a certification must not also linger in the
+    top-level links list (the ONE-PLACE rule, enforced in code)."""
+    from app.schemas.master_cv import MasterCV
+
+    drive = "https://drive.google.com/file/d/ABC/view"
+    cv = MasterCV(
+        full_name="Yara",
+        links=[{"label": "Portfolio", "url": "https://yara.dev"}, {"url": drive}],
+        certifications=[{"name": "Back-End Module", "url": drive}],
+    )
+    assert [l.url for l in cv.links] == ["https://yara.dev"]
+    assert cv.certifications[0].url == drive
+
+
+def test_links_section_is_folded_not_duplicated():
+    """A CV "Links" section must not render twice (header + a LINKS section). Its
+    URLs fold into links and dedupe against linkedin/github; mailto/tel are dropped."""
+    from app.schemas.master_cv import MasterCV
+
+    cv = MasterCV(
+        full_name="Moaaz",
+        linkedin="https://www.linkedin.com/in/moaaz",
+        github="https://github.com/Moaaz",
+        additional_sections=[{"title": "Links", "entries": [
+            {"url": "mailto:me@x.com"},
+            {"url": "https://www.linkedin.com/in/moaaz"},  # dup of linkedin field
+            {"url": "https://github.com/Moaaz"},            # dup of github field
+            {"heading": "Portfolio", "url": "https://moaaz.dev"},
+        ]}],
+    )
+    assert all((s.title or "").lower() != "links" for s in cv.additional_sections)
+    assert [l.url for l in cv.links] == ["https://moaaz.dev"]
+
+
+def test_norm_url_dedupes_scheme_and_www_variants():
+    from app.schemas.master_cv import MasterCV
+
+    cv = MasterCV(
+        full_name="X",
+        website="https://example.com",
+        links=[{"url": "http://www.example.com/"}],  # same destination, different form
+    )
+    assert cv.links == []  # pruned as a duplicate of website
+
+
+def test_combined_award_certificate_title_is_tidied():
+    """After certificates are extracted into the certifications field, a leftover
+    'Awards & Certificates' section is retitled to just 'Awards'."""
+    from app.schemas.master_cv import MasterCV
+
+    cv = MasterCV(
+        full_name="Yara",
+        certifications=[{"name": "AWS SAA"}],
+        additional_sections=[{"title": "AWARDS & CERTIFICATES", "entries": [
+            {"heading": "Scholarship"},
+        ]}],
+    )
+    assert cv.additional_sections[0].title == "AWARDS"
+
+
+def test_certification_link_is_preserved():
+    from app.schemas.master_cv import MasterCV
+
+    cv = MasterCV(
+        full_name="Jane Doe",
+        certifications=[
+            {"name": "AWS SAA", "url": "https://credly.com/badge/123"},
+            "Scrum Master — https://verify.scrum.org/abc",
+        ],
+    )
+    assert cv.certifications[0].url == "https://credly.com/badge/123"
+    assert cv.certifications[1].url == "https://verify.scrum.org/abc"
+    assert cv.certifications[1].name == "Scrum Master"
+
+
+def test_extra_profile_links_are_preserved():
+    from app.schemas.master_cv import MasterCV
+
+    cv = MasterCV(
+        full_name="Jane Doe",
+        links=[
+            "https://scholar.google.com/citations?user=abc",
+            {"label": "Portfolio", "url": "https://jane.dev"},
+            {"name": "X", "href": "https://x.com/jane"},
+            {"label": "no url here"},
+        ],
+    )
+    assert [(l.label, l.url) for l in cv.links] == [
+        (None, "https://scholar.google.com/citations?user=abc"),
+        ("Portfolio", "https://jane.dev"),
+        ("X", "https://x.com/jane"),
+    ]
 
 
 def test_full_name_still_required():

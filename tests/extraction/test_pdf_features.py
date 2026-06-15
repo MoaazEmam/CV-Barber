@@ -39,6 +39,34 @@ def test_links_are_appended(tmp_path):
     assert "https://linkedin.com/in/example" in text
 
 
+def test_dedupe_overprint_collapses_faux_bold():
+    # Faux-bold PDFs redraw a hyperlinked word many times -> it extracts as N
+    # identical lines plus a remnant adjacent to the real line. Keep one copy.
+    ex = PdfExtractor()
+    raw = (
+        "Back-End Module from IEEE CUSB — Certificate\n"
+        + "Certificate\n" * 16
+        + "Digital Design — Certificate\n"
+        + "Certificate\n" * 16
+    )
+    out = ex._dedupe_overprint(raw)
+    assert out.count("Certificate") == 2
+    assert out == "Back-End Module from IEEE CUSB — Certificate\nDigital Design — Certificate"
+
+
+def test_dedupe_overprint_removes_leading_remnant():
+    ex = PdfExtractor()
+    raw = "Portfolio\n" * 17 + "Portfolio | yara-senousy"
+    out = ex._dedupe_overprint(raw)
+    assert out == "Portfolio | yara-senousy"
+
+
+def test_collapse_repeats_anchor():
+    ex = PdfExtractor()
+    assert ex._collapse_repeats("Certificate " * 17) == "Certificate"
+    assert ex._collapse_repeats("Portfolio") == "Portfolio"
+
+
 def test_scanned_pdf_degrades_gracefully(tmp_path):
     # A page with no text layer looks scanned → OCR is attempted. Without
     # Tesseract it returns "" (logged, not raised); a blank page yields "" even
