@@ -151,6 +151,9 @@ def _build_env(sandboxed: bool = False) -> jinja2.Environment:
         finalize=latex_escape,
     )
     env.filters["latex"] = latex_escape
+    from app.schemas.cv_blocks import friendly_link_label
+
+    env.filters["link_label"] = friendly_link_label
     return env
 
 
