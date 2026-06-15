@@ -1,6 +1,8 @@
 from typing import Optional
 from pydantic import BaseModel, Field, field_validator
 
+from app.schemas.cv_blocks import Link, coerce_links
+
 
 class BaseCV(BaseModel):
     # full_name is the one genuinely vital field — fail early with a clear
@@ -20,3 +22,11 @@ class BaseCV(BaseModel):
     linkedin: Optional[str] = None
     github: Optional[str] = None
     website: Optional[str] = None
+    # Any other profile/contact link (Portfolio, Twitter/X, Google Scholar, ORCID,
+    # StackOverflow, …) that has no dedicated field — preserved so nothing is lost.
+    links: list[Link] = Field(default_factory=list)
+
+    @field_validator("links", mode="before")
+    @classmethod
+    def _coerce_links(cls, v):
+        return coerce_links(v)
