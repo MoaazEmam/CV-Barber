@@ -118,10 +118,13 @@ def _render_builtin(builtin, cv: TailoredCV) -> bytes:
     from jinja2 import Environment, FileSystemLoader, select_autoescape
     from app.generation.template_registry import TEMPLATES_DIR
 
+    from app.schemas.cv_blocks import friendly_link_label
+
     env = Environment(
         loader=FileSystemLoader(str(TEMPLATES_DIR)),
         autoescape=select_autoescape(["html"]),
     )
+    env.filters["link_label"] = friendly_link_label
     html = env.get_template(builtin.filename).render(cv=cv)
     return _weasyprint_pdf(html)
 
@@ -137,9 +140,12 @@ def _render_custom_html(source: str, cv: TailoredCV) -> bytes:
     # the contract (e.g. "{{ cv.full_name }}") would otherwise be parsed as a real
     # expression and crash. Comments never affect the rendered PDF.
     source = _HTML_COMMENT_RE.sub("", source)
+    from app.schemas.cv_blocks import friendly_link_label
+
     env = SandboxedEnvironment(
         autoescape=select_autoescape(["html", "xml"], default_for_string=True)
     )
+    env.filters["link_label"] = friendly_link_label
     try:
         html = env.from_string(source).render(cv=cv)
     except Exception as e:  # SSTI / template errors
