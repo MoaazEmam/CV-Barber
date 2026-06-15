@@ -16,6 +16,14 @@ function isThinJd(jd) {
   return new Set((matches || []).map((m) => m.toLowerCase())).size < 3
 }
 
+// Coerces a max-entries field (which may be left empty while typing) to a
+// valid integer in [1, 50], defaulting to 1.
+function clampEntries(value) {
+  const n = parseInt(value, 10)
+  if (Number.isNaN(n)) return 1
+  return Math.min(50, Math.max(1, n))
+}
+
 export default function TailorPage() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -91,8 +99,8 @@ export default function TailorPage() {
         company_name: companyName,
         job_description: jobDescription,
         jd_supplement: jdSupplement || undefined,
-        top_n_experience: topNExperience,
-        top_n_projects: topNProjects,
+        top_n_experience: clampEntries(topNExperience),
+        top_n_projects: clampEntries(topNProjects),
         rewrite_summary: rewriteSummary,
       })
       const id = res.data.tailored_session_id
@@ -261,15 +269,17 @@ export default function TailorPage() {
           )}
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-4 items-end">
           <div>
             <label className={labelClass}>Max Experience Entries</label>
             <input
               type="number"
+              inputMode="numeric"
               min={1}
               max={50}
               value={topNExperience}
-              onChange={(e) => setTopNExperience(parseInt(e.target.value || '1', 10))}
+              onChange={(e) => setTopNExperience(e.target.value)}
+              onBlur={(e) => setTopNExperience(clampEntries(e.target.value))}
               className={inputClass}
             />
           </div>
@@ -277,10 +287,12 @@ export default function TailorPage() {
             <label className={labelClass}>Max Projects</label>
             <input
               type="number"
+              inputMode="numeric"
               min={1}
               max={50}
               value={topNProjects}
-              onChange={(e) => setTopNProjects(parseInt(e.target.value || '1', 10))}
+              onChange={(e) => setTopNProjects(e.target.value)}
+              onBlur={(e) => setTopNProjects(clampEntries(e.target.value))}
               className={inputClass}
             />
           </div>
