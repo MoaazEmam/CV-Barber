@@ -8,11 +8,13 @@ from markupsafe import escape
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.rate_limit import LLM_USER_LIMITS, limiter
+from app.api.rate_limit import limiter, llm_rate_limit
 from app.auth.config import current_active_user
 from app.db.dependencies import get_db
 from app.db.models import ApplicationModel, User
+from app.llm.base_client import BaseLLMClient
 from app.llm.cover_letter import CoverLetterGenerator
+from app.llm.user_clients import get_user_llm_client
 from app.llm.exceptions import (
     LLMAllKeysExhaustedError,
     LLMRateLimitError,
@@ -28,12 +30,13 @@ logger = structlog.get_logger()
 
 
 @router.post("/applications/{application_id}/cover-letter", response_model=CoverLetterResponse)
-@limiter.limit(LLM_USER_LIMITS)
+@limiter.limit(llm_rate_limit)
 async def generate_cover_letter(
     request: Request,
     application_id: UUID,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(current_active_user),
+    user_client: BaseLLMClient | None = Depends(get_user_llm_client),
 ):
     result = await db.execute(
         select(ApplicationModel).where(ApplicationModel.id == application_id)
@@ -45,7 +48,7 @@ async def generate_cover_letter(
         raise HTTPException(status_code=403, detail="Forbidden")
 
     tailored_cv = TailoredCV.model_validate(application.tailored_cv_data)
-    generator = CoverLetterGenerator()
+    generator = CoverLetterGenerator(client=user_client)
 
     # Best-effort web research about the company (TTL-cached globally; None when
     # search is disabled or fails — the letter then relies on the JD alone).

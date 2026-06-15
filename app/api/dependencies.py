@@ -8,6 +8,7 @@ from app.db.models import (
     ApplicationModel,
     MasterCVModel,
     QAResponseModel,
+    UserLLMKeyModel,
     UserTemplateModel,
 )
 from app.schemas.master_cv import MasterCV
@@ -228,3 +229,53 @@ async def delete_user_template(db: AsyncSession, template_id: UUID, user_id: UUI
         raise KeyError(f"UserTemplate {template_id} not found")
     await db.delete(row)
     await db.commit()
+
+
+# --- per-user LLM API keys (bring-your-own) ----------------------------------
+
+async def create_user_llm_key(
+    db: AsyncSession,
+    user_id: UUID,
+    provider: str,
+    encrypted_key: str,
+    key_hint: str | None = None,
+    label: str | None = None,
+) -> UserLLMKeyModel:
+    row = UserLLMKeyModel(
+        id=uuid4(), user_id=user_id, provider=provider,
+        encrypted_key=encrypted_key, key_hint=key_hint, label=label,
+    )
+    db.add(row)
+    await db.commit()
+    await db.refresh(row)
+    return row
+
+
+async def list_user_llm_keys(db: AsyncSession, user_id: UUID) -> list[UserLLMKeyModel]:
+    result = await db.execute(
+        select(UserLLMKeyModel)
+        .where(UserLLMKeyModel.user_id == user_id)
+        .order_by(UserLLMKeyModel.created_at.desc())
+    )
+    return list(result.scalars().all())
+
+
+async def delete_user_llm_key(db: AsyncSession, key_id: UUID, user_id: UUID) -> None:
+    result = await db.execute(
+        select(UserLLMKeyModel).where(
+            UserLLMKeyModel.id == key_id,
+            UserLLMKeyModel.user_id == user_id,
+        )
+    )
+    row = result.scalar_one_or_none()
+    if row is None:
+        raise KeyError(f"UserLLMKey {key_id} not found")
+    await db.delete(row)
+    await db.commit()
+
+
+async def user_has_llm_keys(db: AsyncSession, user_id: UUID) -> bool:
+    result = await db.execute(
+        select(UserLLMKeyModel.id).where(UserLLMKeyModel.user_id == user_id).limit(1)
+    )
+    return result.first() is not None

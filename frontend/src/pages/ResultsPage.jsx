@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import api from '../lib/axios'
 import useAppStore from '../store/useAppStore'
 import ConfirmDialog from '../components/ConfirmDialog'
+import { saveBlob, filenameFromDisposition } from '../lib/download'
 
 function scoreClasses(score) {
   if (score >= 7) return 'bg-emerald-500/15 text-emerald-400'
@@ -363,17 +364,11 @@ function CoverLetterPanel({ applicationId, initialCoverLetter }) {
         `/api/applications/${applicationId}/cover-letter/download?format=${format}`,
         { responseType: 'blob' },
       )
-      const disposition = res.headers['content-disposition'] || ''
-      const match = disposition.match(/filename="?([^"]+)"?/)
-      const filename = match ? match[1] : `cover_letter.${format}`
-      const url = URL.createObjectURL(res.data)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = filename
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      URL.revokeObjectURL(url)
+      const filename = filenameFromDisposition(
+        res.headers['content-disposition'],
+        `cover_letter.${format}`,
+      )
+      saveBlob(res.data, filename, res.headers['content-type'])
     } catch (err) {
       console.error('Cover letter download failed', err)
     }
@@ -685,14 +680,7 @@ function TemplatePanel({ applicationId, onSelect }) {
   const downloadExample = async (fmt) => {
     try {
       const res = await api.get(`/api/templates/example?format=${fmt}`, { responseType: 'blob' })
-      const url = URL.createObjectURL(res.data)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `cv_example.${fmt}`
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      URL.revokeObjectURL(url)
+      saveBlob(res.data, `cv_example.${fmt}`, res.headers['content-type'])
     } catch (err) {
       console.error('Example download failed', err)
     }
@@ -939,17 +927,8 @@ export default function ResultsPage() {
   const downloadFile = async () => {
     try {
       const res = await api.get(`/api/download/${id}`, { responseType: 'blob' })
-      const disposition = res.headers['content-disposition'] || ''
-      const match = disposition.match(/filename="?([^"]+)"?/)
-      const filename = match ? match[1] : 'cv'
-      const url = URL.createObjectURL(res.data)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = filename
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      URL.revokeObjectURL(url)
+      const filename = filenameFromDisposition(res.headers['content-disposition'], 'cv')
+      saveBlob(res.data, filename, res.headers['content-type'])
     } catch (err) {
       console.error('Download failed', err)
     }

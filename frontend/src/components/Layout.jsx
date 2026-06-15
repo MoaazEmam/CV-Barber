@@ -2,6 +2,7 @@ import { Link, Outlet, useNavigate } from 'react-router-dom'
 import useAppStore from '../store/useAppStore'
 import api from '../lib/axios'
 import VerifyEmailModal from './VerifyEmailModal'
+import NewFeatureAnnouncement from './NewFeatureAnnouncement'
 import FeedbackWidget from './FeedbackWidget'
 
 export default function Layout() {
@@ -47,7 +48,12 @@ export default function Layout() {
             )}
             {token && user && (
               <div className="flex items-center gap-4">
-                <span className="hidden sm:block text-sm text-[var(--text-muted)]">{user.username}</span>
+                <Link
+                  to="/profile"
+                  className="hidden sm:block text-sm text-[var(--text-muted)] hover:text-white transition-colors"
+                >
+                  {user.username || 'Profile'}
+                </Link>
                 <button
                   onClick={handleSignOut}
                   className="text-sm text-[var(--text-secondary)] hover:text-white transition-colors"
@@ -67,6 +73,7 @@ export default function Layout() {
       {/* key by user id so the modal's local state (typed code, "sent" step)
           resets when a different account signs in within the same tab */}
       {user && <VerifyEmailModal key={user.id} />}
+      {token && user && <NewFeatureAnnouncement />}
       {token && user && <FeedbackWidget />}
     </div>
   )

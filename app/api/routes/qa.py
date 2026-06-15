@@ -13,8 +13,10 @@ from app.llm.exceptions import (
     LLMRateLimitError,
     LLMValidationError,
 )
-from app.api.rate_limit import LLM_USER_LIMITS, limiter
+from app.api.rate_limit import limiter, llm_rate_limit
+from app.llm.base_client import BaseLLMClient
 from app.llm.qa import CVQAResponder, fallback_company_queries
+from app.llm.user_clients import get_user_llm_client
 from app.llm.scorer import compose_jd
 from app.schemas.qa import QAItem, QARequest, QAResponse
 from app.schemas.tailored_cv import TailoredCV
@@ -29,13 +31,14 @@ logger = structlog.get_logger()
 
 
 @router.post("/applications/{application_id}/qa", response_model=QAResponse)
-@limiter.limit(LLM_USER_LIMITS)
+@limiter.limit(llm_rate_limit)
 async def answer_questions(
     request: Request,
     application_id: UUID,
     payload: QARequest,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(current_active_user),
+    user_client: BaseLLMClient | None = Depends(get_user_llm_client),
 ):
     if not payload.questions or len(payload.questions) > 10:
         raise HTTPException(status_code=422, detail="Provide between 1 and 10 questions")
@@ -50,7 +53,7 @@ async def answer_questions(
         raise HTTPException(status_code=403, detail="Forbidden")
 
     tailored_cv = TailoredCV.model_validate(application.tailored_cv_data)
-    responder = CVQAResponder()
+    responder = CVQAResponder(client=user_client)
     research = await get_company_research(
         db, application.company_name, application.job_title
     )

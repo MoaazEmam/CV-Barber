@@ -82,9 +82,21 @@ class CVScorer:
                 tailored.job_title = config.job_title
             if not tailored.company_name:
                 tailored.company_name = config.company_name
-            # Extra sections aren't scored/tailored in v1 — carry them through from
-            # the master CV verbatim so a template that supports them can render them.
+            # Unscored sections are carried through from the master CV verbatim
+            # rather than trusting the LLM to echo them — this guarantees nothing
+            # (incl. certification links and non-standard sections) is dropped or
+            # mangled during tailoring.
             tailored.additional_sections = master_cv.additional_sections
+            tailored.certifications = master_cv.certifications
+            tailored.education = master_cv.education
+            tailored.skills = master_cv.skills
+            # Identity/contact fields are never tailored — copy them verbatim so
+            # the LLM can't silently drop a phone, a link, or any other detail.
+            for field in (
+                "full_name", "email", "phone", "location",
+                "linkedin", "github", "website", "links",
+            ):
+                setattr(tailored, field, getattr(master_cv, field))
             # Reordering is mandatory; the summary rewrite is optional. When off,
             # keep the user's original summary verbatim.
             if not config.rewrite_summary:

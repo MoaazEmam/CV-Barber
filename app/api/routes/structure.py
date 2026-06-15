@@ -75,7 +75,7 @@ def _sections_from_cv(cv) -> list[Section]:
             label="Certifications",
             enabled=True,
             subsections=[
-                SubSection(key=f"certifications.{i}", label=c, enabled=True)
+                SubSection(key=f"certifications.{i}", label=c.name, enabled=True)
                 for i, c in enumerate(cv.certifications)
             ],
         ))

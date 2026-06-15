@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import save_master_cv
 from app.api.models import ParseResponse
-from app.api.rate_limit import LLM_USER_LIMITS, limiter
+from app.api.rate_limit import limiter, llm_rate_limit
 from app.auth.config import current_active_user
 from app.db.base import AsyncSessionLocal
 from app.db.dependencies import get_db
@@ -19,6 +19,8 @@ from app.llm import (
     LLMRateLimitError,
     LLMValidationError,
 )
+from app.llm.base_client import BaseLLMClient
+from app.llm.user_clients import get_user_llm_client, make_user_client
 
 router = APIRouter()
 extractor = TextExtractor()
@@ -57,14 +59,16 @@ def _parse_warnings(
 
 
 @router.post("/parse", response_model=ParseResponse)
-@limiter.limit(LLM_USER_LIMITS)
+@limiter.limit(llm_rate_limit)
 async def parse_cv(
     request: Request,
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(current_active_user),
+    user_client: BaseLLMClient | None = Depends(get_user_llm_client),
 ):
+    key_config = getattr(request.state, "user_key_config", ({}, False))
     # validate file type
     if not file.filename.lower().endswith((".pdf", ".docx", ".odt")):
         raise HTTPException(
@@ -138,7 +142,7 @@ async def parse_cv(
         from app.pipeline.pipeline import run_parse
 
         log.info("pipeline_parse_started", fmt=file_type)
-        result = await run_parse(file_bytes, file_type, raw_text)
+        result = await run_parse(file_bytes, file_type, raw_text, client=user_client)
         master_cv = result.master_cv
         template_artifact = result.template_artifact
         section_map = result.section_map
@@ -189,7 +193,8 @@ async def parse_cv(
 
         try:
             mcv = _MasterCV.model_validate(master_dump)
-            scorer = ATSScorer(client=LLMClientFactory.create("background"))
+            bg_client = make_user_client("background", key_config) or LLMClientFactory.create("background")
+            scorer = ATSScorer(client=bg_client)
             ats_result = await scorer.score_general(mcv)
         except Exception as e:
             log.warning("auto_general_ats_failed", error=str(e))

@@ -37,6 +37,17 @@ class User(SQLAlchemyBaseUserTableUUID, Base):
     # (username IS NULL == "needs username", enforced by the frontend).
     username: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    # One-time "bring your own LLM key" feature announcement: False until the user
+    # dismisses the popup. server_default=false backfills existing rows so every
+    # current user sees it once.
+    has_seen_llm_keys_announcement: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("false"), default=False
+    )
+    # When the user has their own LLM keys: fall back to the app's shared keys if
+    # theirs fail/exhaust (opt-in; default off keeps them self-contained).
+    llm_fallback_to_shared: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("false"), default=False
+    )
     oauth_accounts: Mapped[list[OAuthAccount]] = relationship(lazy="joined")
 
     # Case-insensitive uniqueness on username: a functional unique index on
@@ -164,6 +175,24 @@ class FeedbackModel(Base):
     message: Mapped[str] = mapped_column(Text, nullable=False)
     page_context: Mapped[str | None] = mapped_column(String(200), nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="open")  # open | resolved
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class UserLLMKeyModel(Base):
+    """A per-user LLM provider API key (encrypted at rest). Multiple rows per
+    (user_id, provider) are allowed so users can rotate several keys. The plaintext
+    key is never stored or returned — only the Fernet ciphertext and a last-4 hint."""
+
+    __tablename__ = "user_llm_keys"
+
+    id: Mapped[uuid4] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    user_id: Mapped[uuid4] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    provider: Mapped[str] = mapped_column(String, nullable=False)
+    encrypted_key: Mapped[str] = mapped_column(Text, nullable=False)
+    key_hint: Mapped[str | None] = mapped_column(String(8), nullable=True)  # last 4 chars
+    label: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 

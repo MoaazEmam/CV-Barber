@@ -15,6 +15,7 @@ import ResetPasswordPage from './pages/ResetPasswordPage'
 import OAuthCallbackPage from './pages/OAuthCallbackPage'
 import ChooseUsernamePage from './pages/ChooseUsernamePage'
 import AdminPage from './pages/AdminPage'
+import ProfilePage from './pages/ProfilePage'
 import useAppStore from './store/useAppStore'
 
 // Client-side gate only (cosmetic): the real enforcement is the 403 the
@@ -65,6 +66,9 @@ export default function App() {
           } />
           <Route path="/history" element={
             <ProtectedRoute><HistoryPage /></ProtectedRoute>
+          } />
+          <Route path="/profile" element={
+            <ProtectedRoute><ProfilePage /></ProtectedRoute>
           } />
           <Route path="/admin" element={
             <AdminRoute><AdminPage /></AdminRoute>
