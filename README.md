@@ -43,7 +43,7 @@ CV Barber parses your CV into structured data, scores every experience and proje
 | Layer | Technology |
 |---|---|
 | Backend | FastAPI + Uvicorn |
-| Primary LLM | Groq (`llama-3.3-70b-versatile`) |
+| Primary LLM | Groq (`openai/gpt-oss-120b`) |
 | Fallback LLM | Google Gemini (`gemini-2.5-flash`) |
 | PDF extraction | PyMuPDF (fitz) with optional OCR (Tesseract) |
 | DOCX extraction | python-docx |
@@ -74,7 +74,7 @@ Download/Preview → load Application → apply section_config (toggle state)
                  → render DOCX (python-docx) or PDF (Jinja2 + WeasyPrint)
 ```
 
-**LLM providers:** Groq is primary (`llama-3.3-70b-versatile`). If Gemini keys are set, exhausted/rate-limited Groq requests fall back to Gemini automatically. Keys are round-robin rotated; daily quota exhaustion is detected and the key is blocked until midnight Pacific.
+**LLM providers:** Groq is primary (`openai/gpt-oss-120b`). If Gemini keys are set, exhausted/rate-limited Groq requests fall back to Gemini automatically. Keys are round-robin rotated; daily quota exhaustion is detected and the key is blocked until midnight Pacific.
 
 **Data model (simplified):**
 ```
@@ -158,7 +158,7 @@ docker compose restart app
 | `SECRET_KEY` | — | **yes** | JWT signing key — generate with `openssl rand -hex 32` |
 | `LLM_PROVIDER` | `groq` | no | `groq`, `gemini`, or `ollama` |
 | `GROQ_API_KEYS` | — | no | Comma-separated Groq keys; ~14,400 req/day per key. Single key also accepted as `GROQ_API_KEY` |
-| `GROQ_MODEL` | `llama-3.3-70b-versatile` | no | Groq model name |
+| `GROQ_MODEL` | `openai/gpt-oss-120b` | no | Groq model name |
 | `GEMINI_API_KEYS` | — | no | Comma-separated Gemini keys; auto-fallback when Groq is exhausted. Single key also accepted as `GEMINI_API_KEY` |
 | `GEMINI_MODEL` | `gemini-2.5-flash` | no | Gemini model name |
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | no | Ollama server URL |

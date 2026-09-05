@@ -2,6 +2,7 @@ import structlog
 from groq import AsyncGroq
 from groq import (
     RateLimitError,
+    APIStatusError,
     APITimeoutError,
     APIConnectionError,
     InternalServerError,
@@ -103,6 +104,19 @@ class GroqClient(BaseLLMClient):
             # 5xx from Groq upstream — surface as a short backoff.
             log.warning("groq_upstream_error", key_index=key_idx)
             raise LLMRateLimitError(retry_after_seconds=30)
+
+        except APIStatusError as exc:
+            # Hard 4xx (404 retired/unknown model, 401/403 bad key, ...): Groq is
+            # misconfigured, not busy. Park this key until midnight so the chain
+            # skips the provider and falls through instead of dying here.
+            log.error(
+                "groq_provider_error",
+                key_index=key_idx,
+                status=exc.status_code,
+                detail=str(exc)[:200],
+            )
+            self._rotator.mark_daily_exhausted(key)
+            return await self._call(system_prompt, user_prompt, json_mode)
 
     async def _handle_rate_limit(
         self,
