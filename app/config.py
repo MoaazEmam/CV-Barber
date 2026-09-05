@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     # Groq
     groq_api_key: str | None = Field(default=None)
     groq_api_keys: str | None = Field(default=None)  # comma-separated
-    groq_model: str = Field(default="llama-3.3-70b-versatile")
+    groq_model: str = Field(default="openai/gpt-oss-120b")
 
     # Gemini (used as fallback when LLM_PROVIDER=groq, or as primary when LLM_PROVIDER=gemini)
     gemini_api_key: str = Field(default="def_key")
@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     ollama_model: str = Field(default="llama3.1")
 
     # Smaller Groq model used by the background chain (shares Groq keys/quota).
-    groq_small_model: str = Field(default="llama-3.1-8b-instant")
+    groq_small_model: str = Field(default="openai/gpt-oss-20b")
 
     # OpenAI-compatible providers (all optional; a provider joins the fallback
     # chain only when its keys are configured — see app/llm/client_factory.py).
