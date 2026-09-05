@@ -12,6 +12,24 @@ from app.llm.key_rotator import KeyRotator
 log = structlog.get_logger()
 
 
+# Status codes / statuses that mean "this provider will never serve this request"
+# — as opposed to a transient 429/5xx that is worth retrying on another key.
+_PROVIDER_ERROR_MARKERS = (
+    "400",
+    "401",
+    "403",
+    "404",
+    "INVALID_ARGUMENT",
+    "PERMISSION_DENIED",
+    "NOT_FOUND",
+    "UNAUTHENTICATED",
+)
+
+
+def _is_provider_error(error_str: str) -> bool:
+    return any(marker in error_str for marker in _PROVIDER_ERROR_MARKERS)
+
+
 def _key_index(rotator: KeyRotator, key: str) -> int:
     try:
         return list(rotator._states_map.keys()).index(key)
@@ -88,6 +106,13 @@ class GeminiClient(BaseLLMClient):
         if any(code in error_str for code in ("503", "502", "504", "UNAVAILABLE")):
             log.warning("gemini_upstream_unavailable", key_index=key_idx)
             raise LLMRateLimitError(retry_after_seconds=30) from e
+        # Hard client errors (404 retired/unknown model, 401/403 bad key, 400 bad
+        # request): Gemini is misconfigured, not busy. Park this key until midnight
+        # so the chain skips the provider and falls through instead of dying here.
+        if _is_provider_error(error_str):
+            log.error("gemini_provider_error", key_index=key_idx, detail=error_str[:200])
+            self._rotator.mark_daily_exhausted(key)
+            return await self._call(system_prompt, user_prompt, json_mode)
         if "429" not in error_str:
             raise
         if "GenerateRequestsPerDay" in error_str or "per_day" in error_str.lower():

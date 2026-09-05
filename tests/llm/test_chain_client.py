@@ -82,3 +82,30 @@ async def test_non_chain_errors_propagate_immediately():
 def test_empty_chain_rejected():
     with pytest.raises(ValueError):
         ChainLLMClient([])
+
+
+@pytest.mark.asyncio
+async def test_retired_groq_model_falls_through_to_next_provider():
+    """Regression: a 404 model_not_found from Groq used to escape GroqClient and
+    kill the whole chain, so a healthy fallback provider was never tried."""
+    from unittest.mock import MagicMock
+
+    import httpx
+    from groq import NotFoundError
+
+    from app.llm.groq_client import GroqClient
+
+    groq = GroqClient(api_keys=["k1"], model="llama-3.3-70b-versatile")
+    request = httpx.Request("POST", "https://api.groq.com/openai/v1/chat/completions")
+    sdk = MagicMock()
+    sdk.chat.completions.create = AsyncMock(
+        side_effect=NotFoundError(
+            "The model `llama-3.3-70b-versatile` does not exist",
+            response=httpx.Response(404, request=request),
+            body={"error": {"message": "model_not_found"}},
+        )
+    )
+    groq._client_for = lambda key: sdk
+
+    chain = ChainLLMClient([groq, _client(result="fallback answer")])
+    assert await chain.complete_json("s", "u") == "fallback answer"
