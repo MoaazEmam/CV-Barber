@@ -6,6 +6,8 @@ CV Barber parses your CV into structured data, scores every experience and proje
 
 🚀 **Live app**: [cv-barber-production.up.railway.app](https://cv-barber-production.up.railway.app/)
 
+![CV Barber demo: describe the role, tailor, preview the PDF](docs/demo.gif)
+
 ---
 
 ## Features
@@ -346,4 +348,4 @@ To deploy your own instance:
 
 ## License
 
-MIT
+[MIT](LICENSE)
